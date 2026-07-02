@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type Status =
+  | "New Applicant"
   | "Contacted"
   | "Follow-Up"
   | "Scheduled"
@@ -40,7 +41,7 @@ type Applicant = {
   createdAt: string;
 };
 
-const statuses: Status[] = ["Contacted", "Follow-Up", "Scheduled", "Passed", "Failed", "Rejected", "No Show", "Hired"];
+const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Passed", "Failed", "Rejected", "No Show", "Hired"];
 
 const messageTypes: MessageType[] = [
   "First Message",
@@ -96,7 +97,7 @@ const defaultApplicant: Applicant = {
   interviewType: "Online",
   interviewLocation: "",
   interviewDateTime: "",
-  status: "Contacted",
+  status: "New Applicant",
   notes: "",
   createdAt: new Date().toISOString(),
 };
@@ -306,7 +307,7 @@ function mapIndeedRows(text: string) {
       calendlyLink: getCsvValue(row, "calendly", "calendly link", "calendly url") || defaultCalendlyUrl,
       location: getCsvValue(row, "candidate location", "location"),
       jobPost: getCsvValue(row, "job title", "job post applied for"),
-      status: mapIndeedStatus(indeedStatus),
+      status: "New Applicant",
       interviewType: "Face-to-Face",
       interviewLocation: "",
       interviewDateTime: "",
@@ -330,6 +331,7 @@ function loadSavedApplicants() {
 
 function suggestedMessageType(status: Status): MessageType {
   const map: Record<Status, MessageType> = {
+    "New Applicant": "First Message",
     Contacted: "First Message",
     "Follow-Up": "Follow-Up Message",
     Scheduled: "Interview Confirmation",
