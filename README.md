@@ -10,9 +10,6 @@ A simple React-based applicant tracker for managing candidates from first contac
 - Applicant detail popup opened from each board card
 - Search and status filtering
 - CSV candidate import for Indeed exports
-- Calendly-style booking page with available days, time slots, blocked slots, location management, and double-book prevention
-- Booking sync into the applicant tracker with automatic Scheduled status updates
-- Google Calendar event links with applicant and interview details
 - Status-aware formal message generator
 - Copy, SMS handoff, and email handoff actions
 - Browser localStorage persistence
@@ -29,5 +26,3 @@ The app runs at `http://localhost:3000`.
 ## Notes
 
 Google Voice does not expose a simple public send API for this static app, so messages are generated for copy, SMS handoff, or email.
-
-Automatic Google Calendar event creation, Google Meet generation, and automatic confirmation emails require a backend Google OAuth integration. The current static app generates Google Calendar event links and email handoff links with the booking details.

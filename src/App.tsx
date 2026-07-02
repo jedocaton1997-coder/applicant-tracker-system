@@ -40,28 +40,6 @@ type Applicant = {
   createdAt: string;
 };
 
-type BookingSettings = {
-  bookingTitle: string;
-  bookingDescription: string;
-  availableDays: string[];
-  timeSlots: string[];
-  blockedSlots: string[];
-  faceToFaceLocations: string[];
-  cancelBehavior: "Cancelled" | "Contacted";
-};
-
-type BookingForm = {
-  name: string;
-  email: string;
-  phone: string;
-  jobPost: string;
-  date: string;
-  time: string;
-  interviewType: InterviewType;
-  interviewLocation: string;
-  notes: string;
-};
-
 const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Passed", "Failed", "Cancelled", "No Show"];
 
 const messageTypes: MessageType[] = [
@@ -83,7 +61,6 @@ const iconLabels = {
   copy: "Copy",
   filter: "Filter",
   import: "CSV",
-  calendar: "Book",
   mail: "Mail",
   message: "Msg",
   search: "Find",
@@ -97,29 +74,6 @@ const companyName = "System Oriented LLC";
 const defaultApplicationSource = "Indeed";
 const defaultCalendlyUrl = "https://calendly.com/steve-systemoriented/seasonal-delivery-driver";
 const defaultInterviewLocation = "Panera Bread\n10914 Baltimore Ave, Beltsville, MD 20705, United States";
-
-const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const defaultBookingSettings: BookingSettings = {
-  bookingTitle: "Schedule Your Interview",
-  bookingDescription: "Choose an available date and time for a 30-minute interview with System Oriented LLC.",
-  availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-  timeSlots: ["09:00", "10:00", "11:30", "13:00", "14:30", "16:00"],
-  blockedSlots: [],
-  faceToFaceLocations: [defaultInterviewLocation],
-  cancelBehavior: "Cancelled",
-};
-
-const emptyBookingForm: BookingForm = {
-  name: "",
-  email: "",
-  phone: "",
-  jobPost: "",
-  date: "",
-  time: "",
-  interviewType: "Face-to-Face",
-  interviewLocation: defaultInterviewLocation,
-  notes: "",
-};
 
 function Icon({ name }: { name: keyof typeof iconLabels }) {
   return (
@@ -231,116 +185,6 @@ function isTomorrowInterview(value: string) {
   const dayAfterTomorrow = new Date(tomorrow);
   dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
   return interviewDate >= tomorrow && interviewDate < dayAfterTomorrow;
-}
-
-function combineDateTime(date: string, time: string) {
-  if (!date || !time) return "";
-  return `${date}T${time}`;
-}
-
-function addMinutes(value: string, minutes: number) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  date.setMinutes(date.getMinutes() + minutes);
-  return date;
-}
-
-function toGoogleCalendarDate(value: Date) {
-  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-}
-
-function getWeekday(value: string) {
-  if (!value) return "";
-  return new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(new Date(`${value}T12:00`));
-}
-
-function listFromText(value: string) {
-  return value
-    .split(/\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function formatTimeSlot(value: string) {
-  if (!value) return "";
-  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(`2026-01-01T${value}`));
-}
-
-function loadBookingSettings() {
-  try {
-    const saved = localStorage.getItem("ats-booking-settings");
-    if (!saved) return defaultBookingSettings;
-    const parsed = JSON.parse(saved) as Partial<BookingSettings>;
-    return {
-      ...defaultBookingSettings,
-      ...parsed,
-      availableDays: parsed.availableDays?.length ? parsed.availableDays : defaultBookingSettings.availableDays,
-      timeSlots: parsed.timeSlots?.length ? parsed.timeSlots : defaultBookingSettings.timeSlots,
-      faceToFaceLocations: parsed.faceToFaceLocations?.length ? parsed.faceToFaceLocations : defaultBookingSettings.faceToFaceLocations,
-      cancelBehavior: parsed.cancelBehavior === "Contacted" ? "Contacted" : "Cancelled",
-    };
-  } catch {
-    return defaultBookingSettings;
-  }
-}
-
-function buildGoogleCalendarUrl(applicant: Applicant) {
-  if (!applicant.interviewDateTime) return "";
-  const start = new Date(applicant.interviewDateTime);
-  const end = addMinutes(applicant.interviewDateTime, 30);
-  if (!end || Number.isNaN(start.getTime())) return "";
-  const location = applicant.interviewType === "Face-to-Face" ? applicant.interviewLocation : "Online interview";
-  const details = [
-    `Applicant: ${applicant.name}`,
-    `Phone: ${applicant.phone || "Not provided"}`,
-    `Email: ${applicant.email || "Not provided"}`,
-    `Job Position: ${applicant.jobPost || "Not provided"}`,
-    `Interview Type: ${applicant.interviewType}`,
-    applicant.interviewType === "Online"
-      ? "Google Meet: connect Google Calendar API with conferenceData enabled to automatically generate a Meet link."
-      : `Interview Location: ${applicant.interviewLocation || "Not provided"}`,
-    applicant.notes ? `Notes: ${applicant.notes}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: `${applicant.name || "Applicant"} Interview - ${applicant.jobPost || "Position"}`,
-    dates: `${toGoogleCalendarDate(start)}/${toGoogleCalendarDate(end)}`,
-    details,
-    location,
-  });
-
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
-
-function buildConfirmationMessage(applicant: Applicant, calendarUrl: string) {
-  const locationLine =
-    applicant.interviewType === "Face-to-Face"
-      ? `Interview Location:\n${applicant.interviewLocation || defaultInterviewLocation}`
-      : "Interview Type:\nOnline";
-
-  return `Hello ${applicant.name || "there"},
-
-Your interview has been scheduled successfully.
-
-Position:
-${applicant.jobPost || "The position"}
-
-Interview Date and Time:
-${formatDateTime(applicant.interviewDateTime)}
-
-${locationLine}
-
-To add this appointment to Google Calendar, please use this link:
-${calendarUrl}
-
-If you need to cancel or reschedule, please contact us as soon as possible.
-
-Thank you,
-${senderName}
-${companyName}`;
 }
 
 function normalizeApplicant(applicant: Partial<Applicant>): Applicant {
@@ -606,28 +450,10 @@ export default function App() {
   const [importSummary, setImportSummary] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [preferredMessageType, setPreferredMessageType] = useState<MessageType | null>(null);
-  const [bookingOpen, setBookingOpen] = useState(false);
-  const [bookingMode, setBookingMode] = useState<"admin" | "public">("admin");
-  const [bookingForm, setBookingForm] = useState<BookingForm>(emptyBookingForm);
-  const [bookingSettings, setBookingSettings] = useState<BookingSettings>(loadBookingSettings);
-  const [bookingConfirmationId, setBookingConfirmationId] = useState("");
-  const [bookingFilter, setBookingFilter] = useState({ date: "", status: "All" as Status | "All", type: "All" as InterviewType | "All", location: "" });
 
   useEffect(() => {
     localStorage.setItem("ats-applicants", JSON.stringify(applicants));
   }, [applicants]);
-
-  useEffect(() => {
-    localStorage.setItem("ats-booking-settings", JSON.stringify(bookingSettings));
-  }, [bookingSettings]);
-
-  useEffect(() => {
-    const bookingParam = new URLSearchParams(window.location.search).get("booking");
-    if (bookingParam === "public" || bookingParam === "1") {
-      setBookingMode(bookingParam === "public" ? "public" : "admin");
-      setBookingOpen(true);
-    }
-  }, []);
 
   const selected = applicants.find((applicant) => applicant.id === selectedId) ?? defaultApplicant;
 
@@ -678,27 +504,6 @@ export default function App() {
   }, [applicants]);
 
   const message = buildMessage(selected, messageType);
-  const bookedSlotKeys = useMemo(() => {
-    return new Set(applicants.filter((applicant) => applicant.status === "Scheduled").map((applicant) => applicant.interviewDateTime).filter(Boolean));
-  }, [applicants]);
-  const availableTimes = useMemo(() => {
-    if (!bookingForm.date || !bookingSettings.availableDays.includes(getWeekday(bookingForm.date))) return [];
-    return bookingSettings.timeSlots.filter((time) => {
-      const slot = combineDateTime(bookingForm.date, time);
-      return !bookedSlotKeys.has(slot) && !bookingSettings.blockedSlots.includes(slot);
-    });
-  }, [bookedSlotKeys, bookingForm.date, bookingSettings]);
-  const scheduledInterviews = useMemo(() => {
-    return applicants
-      .filter((applicant) => applicant.interviewDateTime)
-      .filter((applicant) => bookingFilter.status === "All" || applicant.status === bookingFilter.status)
-      .filter((applicant) => bookingFilter.type === "All" || applicant.interviewType === bookingFilter.type)
-      .filter((applicant) => !bookingFilter.date || applicant.interviewDateTime.startsWith(bookingFilter.date))
-      .filter((applicant) => !bookingFilter.location || applicant.interviewLocation.toLowerCase().includes(bookingFilter.location.toLowerCase()))
-      .sort((a, b) => new Date(a.interviewDateTime).getTime() - new Date(b.interviewDateTime).getTime());
-  }, [applicants, bookingFilter]);
-  const confirmedBooking = applicants.find((applicant) => applicant.id === bookingConfirmationId);
-  const confirmedCalendarUrl = confirmedBooking ? buildGoogleCalendarUrl(confirmedBooking) : "";
 
   function openApplicantDetails(id: string, type?: MessageType) {
     if (type) {
@@ -707,64 +512,6 @@ export default function App() {
     }
     setSelectedId(id);
     setDetailsOpen(true);
-  }
-
-  function updateBookingForm(patch: Partial<BookingForm>) {
-    setBookingConfirmationId("");
-    setBookingForm((current) => ({ ...current, ...patch }));
-  }
-
-  function updateBookingSettings(patch: Partial<BookingSettings>) {
-    setBookingSettings((current) => ({ ...current, ...patch }));
-  }
-
-  function resetBookingForm() {
-    setBookingForm({ ...emptyBookingForm, interviewLocation: bookingSettings.faceToFaceLocations[0] || defaultInterviewLocation });
-    setBookingConfirmationId("");
-  }
-
-  function submitBooking() {
-    const interviewDateTime = combineDateTime(bookingForm.date, bookingForm.time);
-    if (!bookingForm.name || !bookingForm.email || !bookingForm.phone || !bookingForm.jobPost || !interviewDateTime) return;
-    if (bookedSlotKeys.has(interviewDateTime) || bookingSettings.blockedSlots.includes(interviewDateTime)) return;
-
-    const interviewLocation = bookingForm.interviewType === "Face-to-Face" ? bookingForm.interviewLocation || defaultInterviewLocation : "";
-    let confirmedId = "";
-
-    setApplicants((current) => {
-      const existing = current.find((applicant) => {
-        const emailMatch = applicant.email && applicant.email.toLowerCase() === bookingForm.email.toLowerCase();
-        const phoneMatch = normalizePhone(applicant.phone) && normalizePhone(applicant.phone) === normalizePhone(bookingForm.phone);
-        return emailMatch || phoneMatch;
-      });
-      const notes = [existing?.notes, bookingForm.notes ? `Booking Notes: ${bookingForm.notes}` : "", "Booked through booking page."].filter(Boolean).join("\n");
-      const nextApplicant = normalizeApplicant({
-        ...(existing ?? {}),
-        id: existing?.id ?? crypto.randomUUID(),
-        name: bookingForm.name,
-        email: bookingForm.email,
-        phone: bookingForm.phone,
-        source: existing?.source ?? "Booking Page",
-        jobPost: bookingForm.jobPost,
-        interviewType: bookingForm.interviewType,
-        interviewLocation,
-        interviewDateTime,
-        status: "Scheduled",
-        notes,
-      });
-
-      confirmedId = nextApplicant.id;
-      return existing ? current.map((applicant) => (applicant.id === existing.id ? nextApplicant : applicant)) : [nextApplicant, ...current];
-    });
-
-    window.setTimeout(() => {
-      setSelectedId(confirmedId);
-      setBookingConfirmationId(confirmedId);
-    }, 0);
-  }
-
-  function cancelBooking(applicant: Applicant) {
-    saveApplicant({ ...applicant, status: bookingSettings.cancelBehavior, interviewDateTime: "" });
   }
 
   function saveApplicant(next: Applicant) {
@@ -855,16 +602,6 @@ export default function App() {
           <button className="secondary-action" onClick={() => importInputRef.current?.click()}>
             <Icon name="import" />
             Import Candidates
-          </button>
-          <button
-            className="secondary-action"
-            onClick={() => {
-              setBookingMode("admin");
-              setBookingOpen(true);
-            }}
-          >
-            <Icon name="calendar" />
-            Booking Page
           </button>
           <button className="primary-action" onClick={createApplicant}>
             <Icon name="add" />
@@ -972,267 +709,6 @@ export default function App() {
         </section>
 
       </section>
-
-      {bookingOpen && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Booking page">
-          <section className={bookingMode === "public" ? "modal-panel booking-modal public-booking-modal" : "modal-panel booking-modal"}>
-            <div className="panel-heading modal-heading">
-              <div>
-                <span className="eyebrow">{bookingMode === "public" ? companyName : "Booking Page"}</span>
-                <h2>{bookingMode === "public" ? bookingSettings.bookingTitle : "Interview scheduling"}</h2>
-              </div>
-              <div className="modal-actions">
-                {bookingMode === "admin" && (
-                  <button
-                    className="secondary-action"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?booking=public`);
-                    }}
-                  >
-                    <Icon name="copy" />
-                    Copy Public Link
-                  </button>
-                )}
-                <button className="icon-button" onClick={() => setBookingOpen(false)} aria-label="Close booking page">
-                  <Icon name="close" />
-                </button>
-              </div>
-            </div>
-
-            {confirmedBooking ? (
-              <section className="booking-confirmation">
-                <span className="eyebrow">Confirmed</span>
-                <h3>{confirmedBooking.name} is scheduled</h3>
-                <p>{formatDateTime(confirmedBooking.interviewDateTime)}</p>
-                <div className="button-row">
-                  <a href={confirmedCalendarUrl} target="_blank" rel="noreferrer">
-                    <Icon name="calendar" />
-                    Add to Google Calendar
-                  </a>
-                  <a
-                    href={`mailto:${confirmedBooking.email}?subject=${encodeURIComponent("Interview Confirmation")}&body=${encodeURIComponent(
-                      buildConfirmationMessage(confirmedBooking, confirmedCalendarUrl),
-                    )}`}
-                  >
-                    <Icon name="mail" />
-                    Email Applicant
-                  </a>
-                  <button onClick={resetBookingForm}>
-                    <Icon name="add" />
-                    New Booking
-                  </button>
-                </div>
-              </section>
-            ) : null}
-
-            <div className={bookingMode === "public" ? "booking-grid public-booking-grid" : "booking-grid"}>
-              <section className="booking-card">
-                <div>
-                  <span className="eyebrow">{bookingMode === "public" ? "Interview Booking" : "Applicant Booking"}</span>
-                  <h3>{bookingSettings.bookingTitle}</h3>
-                  <p className="booking-description">{bookingSettings.bookingDescription}</p>
-                </div>
-                <div className="form-grid">
-                  <TextField label="Full Name" value={bookingForm.name} onChange={(name) => updateBookingForm({ name })} />
-                  <TextField label="Email Address" value={bookingForm.email} onChange={(email) => updateBookingForm({ email })} />
-                  <TextField label="Phone Number" value={bookingForm.phone} onChange={(phone) => updateBookingForm({ phone })} />
-                  <TextField label="Position Applied For" value={bookingForm.jobPost} onChange={(jobPost) => updateBookingForm({ jobPost })} />
-                  <label>
-                    <span>Preferred Interview Date</span>
-                    <input
-                      type="date"
-                      value={bookingForm.date}
-                      onChange={(event) => updateBookingForm({ date: event.target.value, time: "" })}
-                    />
-                  </label>
-                  <label>
-                    <span>Preferred Interview Time</span>
-                    <select value={bookingForm.time} onChange={(event) => updateBookingForm({ time: event.target.value })}>
-                      <option value="">
-                        {bookingForm.date && availableTimes.length === 0 ? "No available times for this date" : "Select available time"}
-                      </option>
-                      {availableTimes.map((time) => (
-                        <option key={time} value={time}>
-                          {formatTimeSlot(time)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Interview Type</span>
-                    <select value={bookingForm.interviewType} onChange={(event) => updateBookingForm({ interviewType: event.target.value as InterviewType })}>
-                      <option>Face-to-Face</option>
-                      <option>Online</option>
-                    </select>
-                  </label>
-                  {bookingForm.interviewType === "Face-to-Face" ? (
-                    <label>
-                      <span>Interview Location</span>
-                      <select value={bookingForm.interviewLocation} onChange={(event) => updateBookingForm({ interviewLocation: event.target.value })}>
-                        {bookingSettings.faceToFaceLocations.map((location) => (
-                          <option key={location}>{location}</option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : (
-                    <div className="field-note">
-                      <span>Online Interview</span>
-                      <p>Google Meet is requested when the Google Calendar API connection is enabled.</p>
-                    </div>
-                  )}
-                  <label className="wide">
-                    <span>Notes or Additional Information</span>
-                    <textarea value={bookingForm.notes} onChange={(event) => updateBookingForm({ notes: event.target.value })} rows={3} />
-                  </label>
-                </div>
-                <div className="button-row booking-actions">
-                  <button className="primary-action" onClick={submitBooking}>
-                    <Icon name="check" />
-                    Confirm Booking
-                  </button>
-                  {bookingMode === "admin" && (
-                    <a
-                      href={`mailto:?subject=${encodeURIComponent("New interview booking")}&body=${encodeURIComponent(
-                        bookingForm.name
-                          ? `${bookingForm.name} requested an interview on ${bookingForm.date} at ${bookingForm.time} for ${bookingForm.jobPost}.`
-                          : "A new interview booking was started.",
-                      )}`}
-                    >
-                      <Icon name="mail" />
-                      Notify Admin
-                    </a>
-                  )}
-                </div>
-              </section>
-
-              {bookingMode === "admin" && (
-              <section className="booking-card admin-card">
-                <div>
-                  <span className="eyebrow">Admin Controls</span>
-                  <h3>Availability and bookings</h3>
-                </div>
-                <div className="integration-note">
-                  Google Calendar event links are generated with the booking details. Automatic event creation, confirmation emails, and Google Meet links require a connected Google OAuth backend.
-                </div>
-
-                <TextField label="Booking Page Title" value={bookingSettings.bookingTitle} onChange={(bookingTitle) => updateBookingSettings({ bookingTitle })} />
-                <label>
-                  <span>Booking Page Description</span>
-                  <textarea
-                    value={bookingSettings.bookingDescription}
-                    onChange={(event) => updateBookingSettings({ bookingDescription: event.target.value })}
-                    rows={3}
-                  />
-                </label>
-
-                <div className="settings-block">
-                  <strong>Available Days</strong>
-                  <div className="checkbox-grid">
-                    {weekdays.map((day) => (
-                      <label key={day} className="checkbox-line">
-                        <input
-                          type="checkbox"
-                          checked={bookingSettings.availableDays.includes(day)}
-                          onChange={(event) => {
-                            const next = event.target.checked
-                              ? [...bookingSettings.availableDays, day]
-                              : bookingSettings.availableDays.filter((item) => item !== day);
-                            updateBookingSettings({ availableDays: weekdays.filter((weekday) => next.includes(weekday)) });
-                          }}
-                        />
-                        <span>{day}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <label>
-                  <span>Available Time Slots</span>
-                  <textarea
-                    value={bookingSettings.timeSlots.join(", ")}
-                    onChange={(event) => updateBookingSettings({ timeSlots: listFromText(event.target.value).sort() })}
-                    rows={2}
-                  />
-                </label>
-                <label>
-                  <span>Blocked Date/Time Slots</span>
-                  <textarea
-                    value={bookingSettings.blockedSlots.join(", ")}
-                    onChange={(event) => updateBookingSettings({ blockedSlots: listFromText(event.target.value) })}
-                    rows={2}
-                    placeholder="2026-07-10T11:30"
-                  />
-                </label>
-                <label>
-                  <span>Face-to-Face Interview Locations</span>
-                  <textarea
-                    value={bookingSettings.faceToFaceLocations.join("\n")}
-                    onChange={(event) => updateBookingSettings({ faceToFaceLocations: listFromText(event.target.value) })}
-                    rows={4}
-                  />
-                </label>
-                <label>
-                  <span>Cancel Behavior</span>
-                  <select
-                    value={bookingSettings.cancelBehavior}
-                    onChange={(event) => updateBookingSettings({ cancelBehavior: event.target.value as "Cancelled" | "Contacted" })}
-                  >
-                    <option>Cancelled</option>
-                    <option>Contacted</option>
-                  </select>
-                </label>
-
-                <div className="booking-filters">
-                  <label>
-                    <span>Date</span>
-                    <input type="date" value={bookingFilter.date} onChange={(event) => setBookingFilter((current) => ({ ...current, date: event.target.value }))} />
-                  </label>
-                  <label>
-                    <span>Status</span>
-                    <select value={bookingFilter.status} onChange={(event) => setBookingFilter((current) => ({ ...current, status: event.target.value as Status | "All" }))}>
-                      <option>All</option>
-                      {statuses.map((status) => (
-                        <option key={status}>{status}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Type</span>
-                    <select value={bookingFilter.type} onChange={(event) => setBookingFilter((current) => ({ ...current, type: event.target.value as InterviewType | "All" }))}>
-                      <option>All</option>
-                      <option>Online</option>
-                      <option>Face-to-Face</option>
-                    </select>
-                  </label>
-                  <TextField label="Location" value={bookingFilter.location} onChange={(location) => setBookingFilter((current) => ({ ...current, location }))} />
-                </div>
-
-                <div className="scheduled-list">
-                  {scheduledInterviews.map((applicant) => (
-                    <article className="scheduled-row" key={applicant.id}>
-                      <button className="reminder-main" onClick={() => openApplicantDetails(applicant.id)}>
-                        <strong>{applicant.name || "Unnamed applicant"}</strong>
-                        <span>{formatDateTime(applicant.interviewDateTime)} · {applicant.interviewType}</span>
-                        <small>{applicant.jobPost || "No job post entered"}</small>
-                      </button>
-                      <div className="scheduled-actions">
-                        <a href={buildGoogleCalendarUrl(applicant)} target="_blank" rel="noreferrer">
-                          <Icon name="calendar" />
-                        </a>
-                        <button onClick={() => cancelBooking(applicant)}>
-                          <Icon name="close" />
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                  {scheduledInterviews.length === 0 && <p className="reminder-empty">No interviews match the current filters.</p>}
-                </div>
-              </section>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
 
       {detailsOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Applicant details">

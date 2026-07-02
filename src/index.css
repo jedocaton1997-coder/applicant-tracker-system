@@ -507,16 +507,6 @@ h3 {
   width: min(100%, 860px);
 }
 
-.booking-modal {
-  max-width: 1180px;
-  width: min(100%, 1180px);
-}
-
-.public-booking-modal {
-  max-width: 720px;
-  width: min(100%, 720px);
-}
-
 .modal-heading {
   gap: 14px;
   position: sticky;
@@ -535,137 +525,6 @@ h3 {
   display: grid;
   gap: 14px;
   grid-template-columns: 1fr 1fr;
-}
-
-.booking-confirmation {
-  background: var(--green-soft);
-  border: 1px solid #97c9b3;
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding: 14px;
-}
-
-.booking-confirmation p {
-  color: #173f35;
-  margin: 0;
-}
-
-.booking-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr);
-}
-
-.public-booking-grid {
-  grid-template-columns: 1fr;
-}
-
-.booking-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  display: grid;
-  gap: 14px;
-  padding: 14px;
-}
-
-.booking-description {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 8px 0 0;
-}
-
-.admin-card {
-  align-content: start;
-}
-
-.settings-block {
-  display: grid;
-  gap: 9px;
-}
-
-.settings-block strong {
-  color: #41504d;
-  font-size: 13px;
-}
-
-.checkbox-grid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.checkbox-line {
-  align-items: center;
-  background: #f8fbfa;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  display: flex;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 10px;
-}
-
-.checkbox-line input {
-  min-height: auto;
-  width: auto;
-}
-
-.checkbox-line span {
-  font-size: 12px;
-}
-
-.booking-filters {
-  border-top: 1px solid var(--line);
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding-top: 14px;
-}
-
-.scheduled-list {
-  display: grid;
-  gap: 9px;
-  max-height: 360px;
-  overflow: auto;
-}
-
-.scheduled-row {
-  align-items: center;
-  background: #f8fbfa;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 10px;
-}
-
-.scheduled-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.scheduled-actions a,
-.scheduled-actions button {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: #26322f;
-  cursor: pointer;
-  display: inline-flex;
-  height: 36px;
-  justify-content: center;
-  width: 36px;
-}
-
-.booking-actions {
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
 }
 
 label {
@@ -836,7 +695,6 @@ textarea:focus {
   .metrics,
   .workspace,
   .side-stack,
-  .booking-grid,
   .form-grid,
   .list-tools,
   .side-stack .form-grid {
@@ -863,11 +721,6 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
-  .booking-filters,
-  .scheduled-row {
-    grid-template-columns: 1fr;
-  }
-
   .kanban-column {
     min-height: 360px;
   }
@@ -884,10 +737,6 @@ textarea:focus {
 
 @media (max-width: 520px) {
   .metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .checkbox-grid {
     grid-template-columns: 1fr;
   }
 
