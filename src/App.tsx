@@ -157,6 +157,22 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatTime(value: string) {
+  if (!value) return "the scheduled time";
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatReminderLocation(applicant: Applicant) {
+  if (applicant.interviewType !== "Face-to-Face") return "for your virtual interview";
+  const location = applicant.interviewLocation || defaultInterviewLocation;
+  const [venue, address = ""] = location.split("\n");
+  const cityState = address.match(/,\s*([^,]+,\s*[A-Z]{2})\s+\d{5}/)?.[1];
+  return cityState ? `at ${venue} in ${cityState}` : `at ${location.replace(/\n/g, ", ")}`;
+}
+
 function normalizeApplicant(applicant: Partial<Applicant>): Applicant {
   return {
     ...defaultApplicant,
@@ -316,10 +332,12 @@ function buildMessage(applicant: Applicant, type: MessageType) {
   const name = applicant.name || "there";
   const job = applicant.jobPost || "the position";
   const schedule = formatDateTime(applicant.interviewDateTime);
+  const interviewTime = formatTime(applicant.interviewDateTime);
   const place = applicant.interviewLocation || "the interview location";
   const interviewStyle = applicant.interviewType === "Face-to-Face" ? "in-person" : "virtual";
   const locationBlock = applicant.interviewType === "Face-to-Face" ? `\n\nInterview Location:\n${place}` : "";
   const currentLocationLine = applicant.interviewType === "Face-to-Face" ? `\nInterview Location: ${place}` : "";
+  const reminderLocation = formatReminderLocation(applicant);
   const calendlyLink = applicant.calendlyLink || defaultCalendlyUrl;
   const signature = `Thank you,\n${senderName}\n${companyName}`;
 
@@ -358,16 +376,17 @@ ${applicant.interviewType}${locationBlock}
 Please be prepared and available at the scheduled time. If any changes are needed, please let us know as soon as possible.
 
 ${signature}`,
-    "Interview Reminder": `Dear ${name},
+    "Interview Reminder": `Hello ${name},
 
-This is a reminder that your interview for the ${job} position is scheduled as follows:
+I hope you are doing well.
 
-Interview Date and Time:
-${schedule}${locationBlock}
+This is a reminder that you have a scheduled interview tomorrow for the ${job} position.
 
-Please arrive or join on time. We look forward to meeting with you.
+Kindly confirm by 10:00 AM tomorrow if you will be able to attend your appointment at ${interviewTime} ${reminderLocation}.
 
-${signature}`,
+If we do not receive your confirmation by 10:00 AM, we will cancel your appointment and ask you to reschedule.
+
+Thank you, and we look forward to hearing from you.`,
     "Rejection Message": `Dear ${name},
 
 Thank you for your time and interest in the ${job} position.
