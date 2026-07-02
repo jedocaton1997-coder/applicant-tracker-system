@@ -41,6 +41,8 @@ type Applicant = {
 };
 
 type BookingSettings = {
+  bookingTitle: string;
+  bookingDescription: string;
   availableDays: string[];
   timeSlots: string[];
   blockedSlots: string[];
@@ -98,6 +100,8 @@ const defaultInterviewLocation = "Panera Bread\n10914 Baltimore Ave, Beltsville,
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const defaultBookingSettings: BookingSettings = {
+  bookingTitle: "Schedule Your Interview",
+  bookingDescription: "Choose an available date and time for a 30-minute interview with System Oriented LLC.",
   availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
   timeSlots: ["09:00", "10:00", "11:30", "13:00", "14:30", "16:00"],
   blockedSlots: [],
@@ -603,6 +607,7 @@ export default function App() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [preferredMessageType, setPreferredMessageType] = useState<MessageType | null>(null);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingMode, setBookingMode] = useState<"admin" | "public">("admin");
   const [bookingForm, setBookingForm] = useState<BookingForm>(emptyBookingForm);
   const [bookingSettings, setBookingSettings] = useState<BookingSettings>(loadBookingSettings);
   const [bookingConfirmationId, setBookingConfirmationId] = useState("");
@@ -617,7 +622,9 @@ export default function App() {
   }, [bookingSettings]);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("booking") === "1") {
+    const bookingParam = new URLSearchParams(window.location.search).get("booking");
+    if (bookingParam === "public" || bookingParam === "1") {
+      setBookingMode(bookingParam === "public" ? "public" : "admin");
       setBookingOpen(true);
     }
   }, []);
@@ -849,7 +856,13 @@ export default function App() {
             <Icon name="import" />
             Import Candidates
           </button>
-          <button className="secondary-action" onClick={() => setBookingOpen(true)}>
+          <button
+            className="secondary-action"
+            onClick={() => {
+              setBookingMode("admin");
+              setBookingOpen(true);
+            }}
+          >
             <Icon name="calendar" />
             Booking Page
           </button>
@@ -962,22 +975,24 @@ export default function App() {
 
       {bookingOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Booking page">
-          <section className="modal-panel booking-modal">
+          <section className={bookingMode === "public" ? "modal-panel booking-modal public-booking-modal" : "modal-panel booking-modal"}>
             <div className="panel-heading modal-heading">
               <div>
-                <span className="eyebrow">Booking Page</span>
-                <h2>Interview scheduling</h2>
+                <span className="eyebrow">{bookingMode === "public" ? companyName : "Booking Page"}</span>
+                <h2>{bookingMode === "public" ? bookingSettings.bookingTitle : "Interview scheduling"}</h2>
               </div>
               <div className="modal-actions">
-                <button
-                  className="secondary-action"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?booking=1`);
-                  }}
-                >
-                  <Icon name="copy" />
-                  Copy Link
-                </button>
+                {bookingMode === "admin" && (
+                  <button
+                    className="secondary-action"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?booking=public`);
+                    }}
+                  >
+                    <Icon name="copy" />
+                    Copy Public Link
+                  </button>
+                )}
                 <button className="icon-button" onClick={() => setBookingOpen(false)} aria-label="Close booking page">
                   <Icon name="close" />
                 </button>
@@ -1010,11 +1025,12 @@ export default function App() {
               </section>
             ) : null}
 
-            <div className="booking-grid">
+            <div className={bookingMode === "public" ? "booking-grid public-booking-grid" : "booking-grid"}>
               <section className="booking-card">
                 <div>
-                  <span className="eyebrow">Applicant Booking</span>
-                  <h3>Choose an interview slot</h3>
+                  <span className="eyebrow">{bookingMode === "public" ? "Interview Booking" : "Applicant Booking"}</span>
+                  <h3>{bookingSettings.bookingTitle}</h3>
+                  <p className="booking-description">{bookingSettings.bookingDescription}</p>
                 </div>
                 <div className="form-grid">
                   <TextField label="Full Name" value={bookingForm.name} onChange={(name) => updateBookingForm({ name })} />
@@ -1032,7 +1048,9 @@ export default function App() {
                   <label>
                     <span>Preferred Interview Time</span>
                     <select value={bookingForm.time} onChange={(event) => updateBookingForm({ time: event.target.value })}>
-                      <option value="">Select available time</option>
+                      <option value="">
+                        {bookingForm.date && availableTimes.length === 0 ? "No available times for this date" : "Select available time"}
+                      </option>
                       {availableTimes.map((time) => (
                         <option key={time} value={time}>
                           {formatTimeSlot(time)}
@@ -1072,19 +1090,22 @@ export default function App() {
                     <Icon name="check" />
                     Confirm Booking
                   </button>
-                  <a
-                    href={`mailto:?subject=${encodeURIComponent("New interview booking")}&body=${encodeURIComponent(
-                      bookingForm.name
-                        ? `${bookingForm.name} requested an interview on ${bookingForm.date} at ${bookingForm.time} for ${bookingForm.jobPost}.`
-                        : "A new interview booking was started.",
-                    )}`}
-                  >
-                    <Icon name="mail" />
-                    Notify Admin
-                  </a>
+                  {bookingMode === "admin" && (
+                    <a
+                      href={`mailto:?subject=${encodeURIComponent("New interview booking")}&body=${encodeURIComponent(
+                        bookingForm.name
+                          ? `${bookingForm.name} requested an interview on ${bookingForm.date} at ${bookingForm.time} for ${bookingForm.jobPost}.`
+                          : "A new interview booking was started.",
+                      )}`}
+                    >
+                      <Icon name="mail" />
+                      Notify Admin
+                    </a>
+                  )}
                 </div>
               </section>
 
+              {bookingMode === "admin" && (
               <section className="booking-card admin-card">
                 <div>
                   <span className="eyebrow">Admin Controls</span>
@@ -1093,6 +1114,16 @@ export default function App() {
                 <div className="integration-note">
                   Google Calendar event links are generated with the booking details. Automatic event creation, confirmation emails, and Google Meet links require a connected Google OAuth backend.
                 </div>
+
+                <TextField label="Booking Page Title" value={bookingSettings.bookingTitle} onChange={(bookingTitle) => updateBookingSettings({ bookingTitle })} />
+                <label>
+                  <span>Booking Page Description</span>
+                  <textarea
+                    value={bookingSettings.bookingDescription}
+                    onChange={(event) => updateBookingSettings({ bookingDescription: event.target.value })}
+                    rows={3}
+                  />
+                </label>
 
                 <div className="settings-block">
                   <strong>Available Days</strong>
@@ -1197,6 +1228,7 @@ export default function App() {
                   {scheduledInterviews.length === 0 && <p className="reminder-empty">No interviews match the current filters.</p>}
                 </div>
               </section>
+              )}
             </div>
           </section>
         </div>

@@ -512,6 +512,11 @@ h3 {
   width: min(100%, 1180px);
 }
 
+.public-booking-modal {
+  max-width: 720px;
+  width: min(100%, 720px);
+}
+
 .modal-heading {
   gap: 14px;
   position: sticky;
@@ -553,6 +558,10 @@ h3 {
   grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr);
 }
 
+.public-booking-grid {
+  grid-template-columns: 1fr;
+}
+
 .booking-card {
   background: #fff;
   border: 1px solid var(--line);
@@ -560,6 +569,13 @@ h3 {
   display: grid;
   gap: 14px;
   padding: 14px;
+}
+
+.booking-description {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 8px 0 0;
 }
 
 .admin-card {
