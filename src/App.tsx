@@ -17,6 +17,7 @@ type MessageType =
   | "Follow-Up Message"
   | "Interview Confirmation"
   | "Interview Reminder"
+  | "2-Hour Interview Reminder"
   | "Rejection Message"
   | "Congratulations Message"
   | "Reschedule Message";
@@ -46,6 +47,7 @@ const messageTypes: MessageType[] = [
   "Follow-Up Message",
   "Interview Confirmation",
   "Interview Reminder",
+  "2-Hour Interview Reminder",
   "Rejection Message",
   "Congratulations Message",
   "Reschedule Message",
@@ -383,6 +385,15 @@ I hope you are doing well.
 This is a reminder that you have a scheduled interview tomorrow for the ${job} position.
 
 Kindly confirm by 10:00 AM tomorrow if you will be able to attend your appointment at ${interviewTime} ${reminderLocation}.
+
+If we do not receive your confirmation by 10:00 AM, we will cancel your appointment and ask you to reschedule.
+
+Thank you, and we look forward to hearing from you.`,
+    "2-Hour Interview Reminder": `Hello ${name},
+
+I hope you are doing well.
+
+Kindly confirm by 10:00 AM if you will be able to attend your appointment today at ${interviewTime} ${reminderLocation}.
 
 If we do not receive your confirmation by 10:00 AM, we will cancel your appointment and ask you to reschedule.
 
