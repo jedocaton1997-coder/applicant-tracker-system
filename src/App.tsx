@@ -175,6 +175,18 @@ function formatReminderLocation(applicant: Applicant) {
   return cityState ? `at ${venue} in ${cityState}` : `at ${location.replace(/\n/g, ", ")}`;
 }
 
+function isTomorrowInterview(value: string) {
+  if (!value) return false;
+  const interviewDate = new Date(value);
+  if (Number.isNaN(interviewDate.getTime())) return false;
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  const dayAfterTomorrow = new Date(tomorrow);
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+  return interviewDate >= tomorrow && interviewDate < dayAfterTomorrow;
+}
+
 function normalizeApplicant(applicant: Partial<Applicant>): Applicant {
   return {
     ...defaultApplicant,
@@ -437,6 +449,7 @@ export default function App() {
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [importSummary, setImportSummary] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [preferredMessageType, setPreferredMessageType] = useState<MessageType | null>(null);
 
   useEffect(() => {
     localStorage.setItem("ats-applicants", JSON.stringify(applicants));
@@ -445,7 +458,8 @@ export default function App() {
   const selected = applicants.find((applicant) => applicant.id === selectedId) ?? defaultApplicant;
 
   useEffect(() => {
-    setMessageType(suggestedMessageType(selected.status));
+    setMessageType(preferredMessageType ?? suggestedMessageType(selected.status));
+    setPreferredMessageType(null);
   }, [selected.id, selected.status]);
 
   const filteredApplicants = useMemo(() => {
@@ -469,15 +483,36 @@ export default function App() {
   }, [filteredApplicants]);
 
   const metrics = useMemo(() => {
+    const tomorrowInterviews = applicants.filter(
+      (applicant) => isTomorrowInterview(applicant.interviewDateTime) && !["Failed", "Rejected", "No Show", "Hired"].includes(applicant.status),
+    ).length;
     return {
       total: applicants.length,
       scheduled: applicants.filter((a) => a.status === "Scheduled").length,
-      hired: applicants.filter((a) => a.status === "Hired").length,
       needsFollowUp: applicants.filter((a) => ["Follow-Up", "No Show"].includes(a.status)).length,
+      tomorrowInterviews,
     };
   }, [applicants]);
 
+  const tomorrowInterviews = useMemo(() => {
+    return applicants
+      .filter(
+        (applicant) =>
+          isTomorrowInterview(applicant.interviewDateTime) && !["Failed", "Rejected", "No Show", "Hired"].includes(applicant.status),
+      )
+      .sort((a, b) => new Date(a.interviewDateTime).getTime() - new Date(b.interviewDateTime).getTime());
+  }, [applicants]);
+
   const message = buildMessage(selected, messageType);
+
+  function openApplicantDetails(id: string, type?: MessageType) {
+    if (type) {
+      setPreferredMessageType(type);
+      setMessageType(type);
+    }
+    setSelectedId(id);
+    setDetailsOpen(true);
+  }
 
   function saveApplicant(next: Applicant) {
     const applicant = next.id === "new" ? { ...next, id: crypto.randomUUID(), createdAt: new Date().toISOString() } : next;
@@ -495,8 +530,7 @@ export default function App() {
   function createApplicant() {
     const applicant = { ...defaultApplicant, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
     setApplicants((current) => [applicant, ...current]);
-    setSelectedId(applicant.id);
-    setDetailsOpen(true);
+    openApplicantDetails(applicant.id);
   }
 
   function deleteApplicant(id: string) {
@@ -581,12 +615,38 @@ export default function App() {
       <section className="metrics" aria-label="Pipeline metrics">
         <Metric label="Total Applicants" value={metrics.total} icon={<Icon name="applicant" />} />
         <Metric label="Scheduled Interviews" value={metrics.scheduled} icon={<Icon name="clock" />} />
+        <Metric label="Tomorrow Reminders" value={metrics.tomorrowInterviews} icon={<Icon name="clock" />} />
         <Metric label="Needs Follow-Up" value={metrics.needsFollowUp} icon={<Icon name="message" />} />
-        <Metric label="Hired" value={metrics.hired} icon={<Icon name="check" />} />
       </section>
 
       <section className="workspace kanban-workspace">
         <section className="panel kanban-panel">
+          <section className="reminder-panel" aria-label="Tomorrow interview reminders">
+            <div>
+              <span className="eyebrow">Interview Reminders</span>
+              <h2>Scheduled for tomorrow</h2>
+            </div>
+            {tomorrowInterviews.length > 0 ? (
+              <div className="reminder-list">
+                {tomorrowInterviews.map((applicant) => (
+                  <article className="reminder-item" key={applicant.id}>
+                    <button className="reminder-main" onClick={() => openApplicantDetails(applicant.id, "Interview Reminder")}>
+                      <strong>{applicant.name || "Unnamed applicant"}</strong>
+                      <span>{applicant.jobPost || "No job post entered"}</span>
+                      <small>{formatDateTime(applicant.interviewDateTime)}</small>
+                    </button>
+                    <button className="secondary-action" onClick={() => openApplicantDetails(applicant.id, "Interview Reminder")}>
+                      <Icon name="message" />
+                      Open Reminder
+                    </button>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="reminder-empty">No applicant interviews scheduled for tomorrow.</p>
+            )}
+          </section>
+
           <div className="list-tools">
             <label className="search-field">
               <Icon name="search" />
@@ -617,8 +677,7 @@ export default function App() {
                       <button
                         className="kanban-card-main"
                         onClick={() => {
-                          setSelectedId(applicant.id);
-                          setDetailsOpen(true);
+                          openApplicantDetails(applicant.id);
                         }}
                       >
                         <strong>{applicant.name || "Unnamed applicant"}</strong>

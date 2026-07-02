@@ -303,6 +303,66 @@ h3 {
   overflow: hidden;
 }
 
+.reminder-panel {
+  background: #f8fbfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+}
+
+.reminder-panel h2 {
+  font-size: 18px;
+  margin-top: 3px;
+}
+
+.reminder-list {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.reminder-item {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
+}
+
+.reminder-main {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  text-align: left;
+}
+
+.reminder-main strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.reminder-main span,
+.reminder-main small,
+.reminder-empty {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.reminder-empty {
+  margin: 0;
+}
+
 .kanban-board {
   display: grid;
   gap: 12px;
@@ -655,6 +715,10 @@ textarea:focus {
 
   .kanban-panel {
     min-height: auto;
+  }
+
+  .reminder-item {
+    grid-template-columns: 1fr;
   }
 
   .kanban-column {
