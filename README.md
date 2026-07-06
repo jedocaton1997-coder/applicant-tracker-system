@@ -1,6 +1,6 @@
 # Operations Dashboard
 
-A simple React-based operations dashboard for applicant tracking, payroll timesheets, Steve's task list, and daily end-of-day reporting.
+A simple React-based operations dashboard for applicant tracking, payroll timesheets, and daily end-of-day reporting.
 
 ## Features
 
@@ -13,7 +13,6 @@ A simple React-based operations dashboard for applicant tracking, payroll timesh
 - Search and status filtering
 - CSV candidate import for Indeed exports
 - Timesheet page with pay period details, default $6/hour rate, total hours, overtime, missing-entry alerts, payroll estimates, and CSV export
-- Steve To Do List page with task status, priority, due dates, recurring tasks, and Daily Report handoff
 - Daily Report page with recurring weekday EOD tasks, editable report sections, task statuses, and generate/send status controls
 - Status-aware formal message generator
 - Copy, SMS handoff, and email handoff actions
