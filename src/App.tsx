@@ -39,6 +39,7 @@ type Applicant = {
   status: Status;
   notes: string;
   createdAt: string;
+  statusUpdatedAt: string;
 };
 
 const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Confirmed", "Passed", "Failed", "Cancelled", "No Show"];
@@ -75,6 +76,7 @@ const companyName = "System Oriented LLC";
 const defaultApplicationSource = "Indeed";
 const defaultCalendlyUrl = "https://calendly.com/steve-systemoriented/seasonal-delivery-driver";
 const defaultInterviewLocation = "Panera Bread\n10914 Baltimore Ave, Beltsville, MD 20705, United States";
+const contactedFollowUpHours = 24;
 
 function Icon({ name }: { name: keyof typeof iconLabels }) {
   return (
@@ -100,6 +102,7 @@ const defaultApplicant: Applicant = {
   status: "New Applicant",
   notes: "",
   createdAt: new Date().toISOString(),
+  statusUpdatedAt: new Date().toISOString(),
 };
 
 const starterApplicants: Applicant[] = [
@@ -194,12 +197,32 @@ function isTomorrowInterview(value: string) {
   return interviewDate >= tomorrow && interviewDate < dayAfterTomorrow;
 }
 
+function hoursSince(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 0;
+  return (Date.now() - date.getTime()) / 36e5;
+}
+
+function shouldAutoMoveToFollowUp(applicant: Applicant) {
+  if (applicant.status === "Contacted") {
+    return hoursSince(applicant.statusUpdatedAt || applicant.createdAt) >= contactedFollowUpHours;
+  }
+
+  if (applicant.status === "Scheduled" && applicant.interviewDateTime) {
+    const interviewDate = new Date(applicant.interviewDateTime);
+    return !Number.isNaN(interviewDate.getTime()) && interviewDate.getTime() < Date.now();
+  }
+
+  return false;
+}
+
 function normalizeApplicant(applicant: Partial<Applicant>): Applicant {
   return {
     ...defaultApplicant,
     ...applicant,
     id: applicant.id || crypto.randomUUID(),
     createdAt: applicant.createdAt || new Date().toISOString(),
+    statusUpdatedAt: applicant.statusUpdatedAt || applicant.createdAt || new Date().toISOString(),
     email: applicant.email || "",
     source: applicant.source || "Manual",
     calendlyLink: applicant.calendlyLink || defaultCalendlyUrl,
@@ -463,6 +486,33 @@ export default function App() {
     localStorage.setItem("ats-applicants", JSON.stringify(applicants));
   }, [applicants]);
 
+  useEffect(() => {
+    const moveStaleApplicants = () => {
+      setApplicants((current) => {
+        let changed = false;
+        const next = current.map((applicant) => {
+          if (!shouldAutoMoveToFollowUp(applicant)) return applicant;
+          changed = true;
+          const automaticNote =
+            applicant.status === "Contacted"
+              ? `Automatically moved to Follow-Up after ${contactedFollowUpHours} hours with no status change.`
+              : "Automatically moved to Follow-Up because the scheduled interview time has passed.";
+          return {
+            ...applicant,
+            status: "Follow-Up" as Status,
+            statusUpdatedAt: new Date().toISOString(),
+            notes: applicant.notes.includes(automaticNote) ? applicant.notes : [applicant.notes, automaticNote].filter(Boolean).join("\n"),
+          };
+        });
+        return changed ? next : current;
+      });
+    };
+
+    moveStaleApplicants();
+    const interval = window.setInterval(moveStaleApplicants, 15 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const selected = applicants.find((applicant) => applicant.id === selectedId) ?? defaultApplicant;
 
   useEffect(() => {
@@ -523,12 +573,17 @@ export default function App() {
   }
 
   function saveApplicant(next: Applicant) {
-    const applicant = next.id === "new" ? { ...next, id: crypto.randomUUID(), createdAt: new Date().toISOString() } : next;
+    const savedId = next.id === "new" ? crypto.randomUUID() : next.id;
     setApplicants((current) => {
-      const exists = current.some((item) => item.id === applicant.id);
-      return exists ? current.map((item) => (item.id === applicant.id ? applicant : item)) : [applicant, ...current];
+      const existing = current.find((item) => item.id === savedId);
+      const timestamp = new Date().toISOString();
+      const applicant =
+        next.id === "new"
+          ? { ...next, id: savedId, createdAt: timestamp, statusUpdatedAt: timestamp }
+          : { ...next, statusUpdatedAt: existing && existing.status !== next.status ? timestamp : next.statusUpdatedAt || existing?.statusUpdatedAt || timestamp };
+      return existing ? current.map((item) => (item.id === applicant.id ? applicant : item)) : [applicant, ...current];
     });
-    setSelectedId(applicant.id);
+    setSelectedId(savedId);
   }
 
   function updateSelected(patch: Partial<Applicant>) {
@@ -536,7 +591,8 @@ export default function App() {
   }
 
   function createApplicant() {
-    const applicant = { ...defaultApplicant, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+    const timestamp = new Date().toISOString();
+    const applicant = { ...defaultApplicant, id: crypto.randomUUID(), createdAt: timestamp, statusUpdatedAt: timestamp };
     setApplicants((current) => [applicant, ...current]);
     openApplicantDetails(applicant.id);
   }
