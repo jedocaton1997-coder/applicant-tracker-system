@@ -176,6 +176,12 @@ function formatReminderLocation(applicant: Applicant) {
   return cityState ? `at ${venue} in ${cityState}` : `at ${location.replace(/\n/g, ", ")}`;
 }
 
+function formatReminderLocationSentence(applicant: Applicant) {
+  if (applicant.interviewType !== "Face-to-Face") return "The interview will be held online.";
+  const location = (applicant.interviewLocation || defaultInterviewLocation).replace(/\n/g, ", ");
+  return `The interview location is ${location}.`;
+}
+
 function isTomorrowInterview(value: string) {
   if (!value) return false;
   const interviewDate = new Date(value);
@@ -355,6 +361,7 @@ function buildMessage(applicant: Applicant, type: MessageType) {
   const locationBlock = applicant.interviewType === "Face-to-Face" ? `\n\nInterview Location:\n${place}` : "";
   const currentLocationLine = applicant.interviewType === "Face-to-Face" ? `\nInterview Location: ${place}` : "";
   const reminderLocation = formatReminderLocation(applicant);
+  const reminderLocationSentence = formatReminderLocationSentence(applicant);
   const calendlyLink = applicant.calendlyLink || defaultCalendlyUrl;
   const signature = `Thank you,\n${senderName}\n${companyName}`;
 
@@ -395,15 +402,13 @@ Please be prepared and available at the scheduled time. If any changes are neede
 ${signature}`,
     "Interview Reminder": `Hello ${name},
 
-I hope you are doing well.
+This is a reminder that you have a scheduled interview tomorrow at ${interviewTime} for the ${job} position.
 
-This is a reminder that you have a scheduled interview tomorrow for the ${job} position.
+${reminderLocationSentence}
 
-Kindly confirm by 10:00 AM tomorrow if you will be able to attend your appointment at ${interviewTime} ${reminderLocation}.
+Kindly confirm today or tomorrow by 10:00 AM if you are able to attend. If we do not receive your confirmation, your appointment may be canceled and rescheduled.
 
-If we do not receive your confirmation by 10:00 AM, we will cancel your appointment and ask you to reschedule.
-
-Thank you, and we look forward to hearing from you.`,
+Thank you.`,
     "2-Hour Interview Reminder": `Hello ${name},
 
 I hope you are doing well.
