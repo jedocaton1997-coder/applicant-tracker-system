@@ -42,7 +42,7 @@ type Applicant = {
   statusUpdatedAt: string;
 };
 
-type ActiveTab = "Dashboard" | "Applicant Tracker" | "Timesheet" | "Daily Report";
+type ActiveTab = "Dashboard" | "Applicant Tracker" | "Timesheet";
 
 type TimesheetEntry = {
   id: string;
@@ -52,49 +52,17 @@ type TimesheetEntry = {
   clockOut: string;
   breakMinutes: number;
   hourlyRate: number;
-  attendanceStatus: "Present" | "Absent" | "Late" | "Incomplete";
+  attendanceStatus: TimesheetStatus;
   notes: string;
   payPeriodStart: string;
   payPeriodEnd: string;
   payDate: string;
 };
 
-type DailyTaskStatus = "Not started" | "In progress" | "Completed" | "Skipped" | "Needs follow-up";
-
-type DailyTask = {
-  id: string;
-  name: string;
-  status: DailyTaskStatus;
-  notes: string;
-  recurring: boolean;
-};
-
-type DailyReport = {
-  id: string;
-  reportDate: string;
-  preparedBy: string;
-  status: "Draft" | "Generated" | "Sent";
-  summary: string;
-  applicantUpdates: string;
-  timesheetUpdates: string;
-  taskUpdates: string;
-  financeUpdates: string;
-  reminderUpdates: string;
-  appointmentUpdates: string;
-  routeDataConfirmation: string;
-  auditReportStatus: string;
-  fleetScreenshotStatus: string;
-  issues: string;
-  pendingItems: string;
-  recommendations: string;
-  nextSteps: string;
-  finalNotes: string;
-  tasks: DailyTask[];
-};
+type TimesheetStatus = "Present" | "Absent" | "Late" | "Incomplete" | "VL" | "SL";
 
 const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Confirmed", "Passed", "Failed", "Cancelled", "No Show"];
-const tabs: ActiveTab[] = ["Dashboard", "Applicant Tracker", "Timesheet", "Daily Report"];
-const dailyTaskStatuses: DailyTaskStatus[] = ["Not started", "In progress", "Completed", "Skipped", "Needs follow-up"];
+const tabs: ActiveTab[] = ["Dashboard", "Applicant Tracker", "Timesheet"];
 
 const messageTypes: MessageType[] = [
   "First Message",
@@ -130,16 +98,15 @@ const defaultCalendlyUrl = "https://calendly.com/steve-systemoriented/seasonal-d
 const defaultInterviewLocation = "Panera Bread\n10914 Baltimore Ave, Beltsville, MD 20705, United States";
 const contactedFollowUpHours = 24;
 const defaultHourlyRate = 6;
-
-const recurringDailyTaskNames = [
-  "DAILY - SEND REPORT TO STEVE FINANCE REMINDER OR APPOINTMENT",
-  "DAILY - SCHEDULE 5AM MESSAGE BELTSVILLE HUB AND IKEA STORE",
-  "DAILY - SCHEDULE 10AM MESSAGE BELTSVILLE HUB TEAM",
-  "DAILY - SCHEDULE MESSAGE TO IKEA STORE TEAM",
-  "DAILY - CONFIRM CURRENT-DAY ROUTE DATA",
-  "DAILY - SEND AUDIT REPORT AFTER ENTERING DATA INTO THE TRACKER",
-  "DAILY - SEND SCREENSHOT FROM FLEET PROFITABILITY AUDIT",
-];
+const internalTimesheetOwner = "Jedo Caton";
+const defaultClockIn = "09:00";
+const defaultClockOut = "13:00";
+const defaultBreakMinutes = 0;
+const timesheetTemplateVersion = "daily-9am-1pm-no-break-v1";
+const timesheetStatuses: TimesheetStatus[] = ["Present", "Absent", "Late", "Incomplete", "VL", "SL"];
+const payCycleAnchorStart = "2026-06-22";
+const payCycleLengthDays = 14;
+const payCycleWorkDays = 12;
 
 function Icon({ name }: { name: keyof typeof iconLabels }) {
   return (
@@ -205,37 +172,19 @@ const starterApplicants: Applicant[] = [
   },
 ];
 
-const defaultPayPeriod = {
-  start: "2026-06-22",
-  end: "2026-07-03",
-  payDate: "2026-07-06",
-};
+const defaultPayPeriod = getPayPeriodForDate();
 
 const starterTimesheets: TimesheetEntry[] = [
   {
     id: crypto.randomUUID(),
-    employeeName: "Jedo Caton",
+    employeeName: internalTimesheetOwner,
     date: "2026-07-01",
-    clockIn: "08:00",
-    clockOut: "16:30",
-    breakMinutes: 30,
+    clockIn: defaultClockIn,
+    clockOut: defaultClockOut,
+    breakMinutes: defaultBreakMinutes,
     hourlyRate: defaultHourlyRate,
     attendanceStatus: "Present",
     notes: "Completed route data and applicant updates.",
-    payPeriodStart: defaultPayPeriod.start,
-    payPeriodEnd: defaultPayPeriod.end,
-    payDate: defaultPayPeriod.payDate,
-  },
-  {
-    id: crypto.randomUUID(),
-    employeeName: "Steve Team",
-    date: "2026-07-02",
-    clockIn: "09:00",
-    clockOut: "15:00",
-    breakMinutes: 0,
-    hourlyRate: defaultHourlyRate,
-    attendanceStatus: "Present",
-    notes: "Finance reminders and audit follow-up.",
     payPeriodStart: defaultPayPeriod.start,
     payPeriodEnd: defaultPayPeriod.end,
     payDate: defaultPayPeriod.payDate,
@@ -261,9 +210,68 @@ function toInputDateTime(date: Date) {
   return local.toISOString().slice(0, 16);
 }
 
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return toInputDate(date);
+}
+
+function getPayPeriodForDate(date = new Date()) {
+  const anchor = new Date(`${payCycleAnchorStart}T12:00:00`);
+  const current = new Date(`${toInputDate(date)}T12:00:00`);
+  const daysSinceAnchor = Math.floor((current.getTime() - anchor.getTime()) / 86_400_000);
+  const cycleIndex = Math.floor(daysSinceAnchor / payCycleLengthDays);
+  const start = addDays(payCycleAnchorStart, cycleIndex * payCycleLengthDays);
+  return {
+    start,
+    end: addDays(start, payCycleWorkDays - 1),
+    payDate: addDays(start, payCycleLengthDays),
+  };
+}
+
+function isWithinPayPeriod(date: string, period: { start: string; end: string }) {
+  return date >= period.start && date <= period.end;
+}
+
+function nextTimesheetDate(entries: TimesheetEntry[], period: { start: string; end: string }) {
+  const currentDates = entries.filter((entry) => isWithinPayPeriod(entry.date, period)).map((entry) => entry.date).sort();
+  if (currentDates.length === 0) return period.start;
+  const nextDate = addDays(currentDates[currentDates.length - 1], 1);
+  return nextDate <= period.end ? nextDate : currentDates[currentDates.length - 1];
+}
+
 function dayName(value: string) {
   if (!value) return "";
   return new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(new Date(`${value}T12:00:00`));
+}
+
+function formatShortDate(value: string) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "2-digit" }).format(new Date(`${value}T12:00:00`));
+}
+
+function formatShortDateWithYear(value: string) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "2-digit", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+}
+
+function formatSheetDate(value: string) {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00`);
+  const day = new Intl.DateTimeFormat(undefined, { day: "numeric" }).format(date);
+  const month = new Intl.DateTimeFormat(undefined, { month: "short" }).format(date);
+  const year = new Intl.DateTimeFormat(undefined, { year: "numeric" }).format(date);
+  return `${day}-${month}-${year}`;
+}
+
+function formatSheetTime(value: string) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(`2026-01-01T${value}`));
+}
+
+function formatPayPeriodRange(start: string, end: string) {
+  if (!start || !end) return "";
+  return `${formatShortDate(start)} - ${formatShortDateWithYear(end)}`;
 }
 
 function formatDateTime(value: string) {
@@ -486,53 +494,21 @@ function loadSavedTimesheets() {
     const saved = localStorage.getItem("ops-timesheets");
     if (!saved) return starterTimesheets;
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : starterTimesheets;
+    if (!Array.isArray(parsed)) return starterTimesheets;
+    const shouldApplyTemplate = localStorage.getItem("ops-timesheets-template-version") !== timesheetTemplateVersion;
+    if (shouldApplyTemplate) localStorage.setItem("ops-timesheets-template-version", timesheetTemplateVersion);
+    return parsed
+      .filter((entry) => !entry.employeeName || entry.employeeName === internalTimesheetOwner || entry.employeeName === "New Employee")
+      .map((entry) => ({
+        ...entry,
+        employeeName: internalTimesheetOwner,
+        clockIn: shouldApplyTemplate ? defaultClockIn : entry.clockIn || defaultClockIn,
+        clockOut: shouldApplyTemplate ? defaultClockOut : entry.clockOut || defaultClockOut,
+        breakMinutes: defaultBreakMinutes,
+        hourlyRate: defaultHourlyRate,
+      }));
   } catch {
     return starterTimesheets;
-  }
-}
-
-function createDailyReport(date = toInputDate(new Date())): DailyReport {
-  return {
-    id: date,
-    reportDate: date,
-    preparedBy: "Jedo",
-    status: "Draft",
-    summary: "",
-    applicantUpdates: "",
-    timesheetUpdates: "",
-    taskUpdates: "",
-    financeUpdates: "",
-    reminderUpdates: "",
-    appointmentUpdates: "",
-    routeDataConfirmation: "",
-    auditReportStatus: "",
-    fleetScreenshotStatus: "",
-    issues: "",
-    pendingItems: "",
-    recommendations: "",
-    nextSteps: "",
-    finalNotes: "",
-    tasks: recurringDailyTaskNames.map((name) => ({
-      id: crypto.randomUUID(),
-      name,
-      status: "Not started",
-      notes: "",
-      recurring: true,
-    })),
-  };
-}
-
-function loadSavedDailyReports() {
-  const today = toInputDate(new Date());
-  try {
-    const saved = localStorage.getItem("ops-daily-reports");
-    if (!saved) return [createDailyReport(today)];
-    const parsed = JSON.parse(saved);
-    if (!Array.isArray(parsed)) return [createDailyReport(today)];
-    return parsed.some((report) => report.reportDate === today) ? parsed : [createDailyReport(today), ...parsed];
-  } catch {
-    return [createDailyReport(today)];
   }
 }
 
@@ -668,12 +644,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("Dashboard");
   const [applicants, setApplicants] = useState<Applicant[]>(loadSavedApplicants);
   const [timesheets, setTimesheets] = useState<TimesheetEntry[]>(loadSavedTimesheets);
-  const [dailyReports, setDailyReports] = useState<DailyReport[]>(loadSavedDailyReports);
   const [selectedId, setSelectedId] = useState(applicants[0]?.id ?? "new");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "All">("All");
   const [viewMode, setViewMode] = useState<"Kanban" | "List">("Kanban");
-  const [timesheetSearch, setTimesheetSearch] = useState("");
   const [messageType, setMessageType] = useState<MessageType>("First Message");
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [importSummary, setImportSummary] = useState("");
@@ -687,10 +661,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("ops-timesheets", JSON.stringify(timesheets));
   }, [timesheets]);
-
-  useEffect(() => {
-    localStorage.setItem("ops-daily-reports", JSON.stringify(dailyReports));
-  }, [dailyReports]);
 
   useEffect(() => {
     const moveStaleApplicants = () => {
@@ -764,36 +734,54 @@ export default function App() {
   }, [applicants]);
 
   const message = buildMessage(selected, messageType);
-  const currentReport = dailyReports.find((report) => report.reportDate === toInputDate(new Date())) ?? dailyReports[0] ?? createDailyReport();
-  const filteredTimesheets = useMemo(() => {
-    return timesheets.filter((entry) => entry.employeeName.toLowerCase().includes(timesheetSearch.toLowerCase()));
-  }, [timesheets, timesheetSearch]);
+  const currentPeriodTimesheets = useMemo(() => {
+    return timesheets.filter((entry) => isWithinPayPeriod(entry.date, defaultPayPeriod)).sort((a, b) => a.date.localeCompare(b.date));
+  }, [timesheets]);
+  const archivedTimesheetPeriods = useMemo(() => {
+    const groups = timesheets.reduce(
+      (archive, entry) => {
+        const period = getPayPeriodForDate(new Date(`${entry.date}T12:00:00`));
+        if (period.start === defaultPayPeriod.start) return archive;
+        const key = `${period.start}-${period.end}`;
+        const existing = archive[key] ?? {
+          key,
+          period,
+          entries: [] as TimesheetEntry[],
+          totalHours: 0,
+          totalPay: 0,
+        };
+        const hours = calculateHours(entry);
+        existing.entries.push(entry);
+        existing.totalHours += hours;
+        existing.totalPay += hours * entry.hourlyRate;
+        archive[key] = existing;
+        return archive;
+      },
+      {} as Record<
+        string,
+        {
+          key: string;
+          period: ReturnType<typeof getPayPeriodForDate>;
+          entries: TimesheetEntry[];
+          totalHours: number;
+          totalPay: number;
+        }
+      >,
+    );
+    return Object.values(groups).sort((a, b) => b.period.payDate.localeCompare(a.period.payDate));
+  }, [timesheets]);
   const timesheetTotals = useMemo(() => {
-    const totalHours = timesheets.reduce((sum, entry) => sum + calculateHours(entry), 0);
-    const overtimeHours = timesheets.reduce((sum, entry) => sum + calculateOvertime(calculateHours(entry)), 0);
-    const totalPayroll = timesheets.reduce((sum, entry) => sum + calculateHours(entry) * entry.hourlyRate, 0);
+    const totalHours = currentPeriodTimesheets.reduce((sum, entry) => sum + calculateHours(entry), 0);
+    const overtimeHours = currentPeriodTimesheets.reduce((sum, entry) => sum + calculateOvertime(calculateHours(entry)), 0);
+    const totalPayroll = currentPeriodTimesheets.reduce((sum, entry) => sum + calculateHours(entry) * entry.hourlyRate, 0);
     return {
       totalHours,
       overtimeHours,
       regularHours: Math.max(0, totalHours - overtimeHours),
       totalPayroll,
-      employees: new Set(timesheets.map((entry) => entry.employeeName)).size,
-      missingEntries: timesheets.filter((entry) => !entry.clockIn || !entry.clockOut || entry.attendanceStatus === "Incomplete").length,
+      missingEntries: currentPeriodTimesheets.filter((entry) => !entry.clockIn || !entry.clockOut || entry.attendanceStatus === "Incomplete").length,
     };
-  }, [timesheets]);
-  const dailyMetrics = useMemo(() => {
-    const tasks = currentReport.tasks;
-    return {
-      total: tasks.length,
-      completed: tasks.filter((task) => task.status === "Completed").length,
-      pending: tasks.filter((task) => !["Completed", "Skipped"].includes(task.status)).length,
-      skipped: tasks.filter((task) => task.status === "Skipped").length,
-      followUp: tasks.filter((task) => task.status === "Needs follow-up").length,
-      issues: currentReport.issues ? 1 : 0,
-      sentThisWeek: dailyReports.filter((report) => report.status === "Sent").length,
-    };
-  }, [currentReport, dailyReports]);
-
+  }, [currentPeriodTimesheets]);
   function openApplicantDetails(id: string, type?: MessageType) {
     if (type) {
       setPreferredMessageType(type);
@@ -878,15 +866,17 @@ export default function App() {
   }
 
   function addTimesheetEntry() {
-    const today = toInputDate(new Date());
-    setTimesheets((current) => [
-      {
+    setTimesheets((current) => {
+      const entryDate = nextTimesheetDate(current, defaultPayPeriod);
+      return [
+        ...current,
+        {
         id: crypto.randomUUID(),
-        employeeName: "New Employee",
-        date: today,
-        clockIn: "08:00",
-        clockOut: "16:00",
-        breakMinutes: 30,
+        employeeName: internalTimesheetOwner,
+        date: entryDate,
+        clockIn: defaultClockIn,
+        clockOut: defaultClockOut,
+        breakMinutes: defaultBreakMinutes,
         hourlyRate: defaultHourlyRate,
         attendanceStatus: "Present",
         notes: "",
@@ -894,8 +884,8 @@ export default function App() {
         payPeriodEnd: defaultPayPeriod.end,
         payDate: defaultPayPeriod.payDate,
       },
-      ...current,
-    ]);
+      ];
+    });
   }
 
   function updateTimesheetEntry(id: string, patch: Partial<TimesheetEntry>) {
@@ -907,14 +897,12 @@ export default function App() {
   }
 
   function exportTimesheetsCsv() {
-    const header = ["Employee", "Date", "Day", "Clock In", "Clock Out", "Break Minutes", "Hours", "Rate", "Estimated Pay", "Status", "Notes"];
-    const rows = timesheets.map((entry) => [
-      entry.employeeName,
+    const header = ["Date", "Day", "Clock In", "Clock Out", "Hours", "Rate", "Estimated Pay", "Status", "Notes"];
+    const rows = currentPeriodTimesheets.map((entry) => [
       entry.date,
       dayName(entry.date),
       entry.clockIn,
       entry.clockOut,
-      String(entry.breakMinutes),
       calculateHours(entry).toFixed(2),
       String(entry.hourlyRate),
       (calculateHours(entry) * entry.hourlyRate).toFixed(2),
@@ -930,64 +918,23 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
 
-  function updateCurrentReport(patch: Partial<DailyReport>) {
-    setDailyReports((current) => current.map((report) => (report.id === currentReport.id ? { ...report, ...patch } : report)));
-  }
-
-  function updateDailyTask(id: string, patch: Partial<DailyTask>) {
-    setDailyReports((current) =>
-      current.map((report) =>
-        report.id === currentReport.id
-          ? { ...report, tasks: report.tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)) }
-          : report,
-      ),
-    );
-  }
-
-  function addDailyTask() {
-    setDailyReports((current) =>
-      current.map((report) =>
-        report.id === currentReport.id
-          ? {
-              ...report,
-              tasks: [...report.tasks, { id: crypto.randomUUID(), name: "New daily report task", status: "Not started", notes: "", recurring: false }],
-            }
-          : report,
-      ),
-    );
-  }
-
-  function generateEodReport() {
-    updateCurrentReport({ status: "Generated", summary: currentReport.summary || "Daily report generated from current operations dashboard data." });
-  }
-
   return (
     <main className="ats-shell">
       <header className="topbar">
         <div>
-          <span className="eyebrow">Applicant Tracker System</span>
-          <h1>Hiring pipeline and interview command center</h1>
-        </div>
-        <div className="topbar-actions">
-          <input
-            ref={importInputRef}
-            className="hidden-input"
-            type="file"
-            accept=".csv,text/csv"
-            onChange={(event) => {
-              importCandidates(event.target.files?.[0]);
-            }}
-          />
-          <button className="secondary-action" onClick={() => importInputRef.current?.click()}>
-            <Icon name="import" />
-            Import Candidates
-          </button>
-          <button className="primary-action" onClick={createApplicant}>
-            <Icon name="add" />
-            New Applicant
-          </button>
+          <span className="eyebrow">System Oriented LLC</span>
+          <h1>System Oriented Internal Dashboard</h1>
         </div>
       </header>
+      <input
+        ref={importInputRef}
+        className="hidden-input"
+        type="file"
+        accept=".csv,text/csv"
+        onChange={(event) => {
+          importCandidates(event.target.files?.[0]);
+        }}
+      />
 
       <nav className="main-tabs" aria-label="Main operations pages">
         {tabs.map((tab) => (
@@ -1008,8 +955,6 @@ export default function App() {
             <Metric label="Canceled Interviews" value={applicants.filter((a) => a.status === "Cancelled").length} icon={<Icon name="close" />} />
             <Metric label="Timesheet Hours" value={Number(timesheetTotals.totalHours.toFixed(1))} icon={<Icon name="clock" />} />
             <Metric label="Estimated Payroll" value={currency(timesheetTotals.totalPayroll)} icon={<Icon name="check" />} />
-            <Metric label="Daily Report Status" value={currentReport.status === "Sent" ? 100 : currentReport.status === "Generated" ? 75 : 25} icon={<Icon name="message" />} />
-            <Metric label="Pending EOD Items" value={dailyMetrics.pending} icon={<Icon name="clock" />} />
           </section>
 
           <section className="dashboard-grid">
@@ -1018,16 +963,10 @@ export default function App() {
                 <ChartBar key={status} label={status} value={applicants.filter((applicant) => applicant.status === status).length} max={Math.max(1, applicants.length)} />
               ))}
             </DashboardPanel>
-            <DashboardPanel title="Timesheet hours by employee">
-              {Array.from(new Set(timesheets.map((entry) => entry.employeeName))).map((employee) => {
-                const hours = timesheets.filter((entry) => entry.employeeName === employee).reduce((sum, entry) => sum + calculateHours(entry), 0);
-                return <ChartBar key={employee} label={employee} value={Number(hours.toFixed(1))} max={Math.max(1, timesheetTotals.totalHours)} />;
-              })}
-            </DashboardPanel>
-            <DashboardPanel title="Daily report completion">
-              <ChartBar label="Completed daily tasks" value={dailyMetrics.completed} max={Math.max(1, dailyMetrics.total)} />
-              <ChartBar label="Pending daily tasks" value={dailyMetrics.pending} max={Math.max(1, dailyMetrics.total)} />
-              <ChartBar label="Issues or reminders" value={dailyMetrics.issues + dailyMetrics.followUp} max={Math.max(1, dailyMetrics.total)} />
+            <DashboardPanel title="My timesheet hours by date">
+              {Array.from(new Set(currentPeriodTimesheets.map((entry) => entry.date))).map((date) => (
+                <ChartBar key={date} label={date} value={Number(currentPeriodTimesheets.filter((entry) => entry.date === date).reduce((sum, entry) => sum + calculateHours(entry), 0).toFixed(1))} max={Math.max(1, timesheetTotals.totalHours)} />
+              ))}
             </DashboardPanel>
           </section>
 
@@ -1046,6 +985,24 @@ export default function App() {
 
       {activeTab === "Applicant Tracker" && (
         <>
+      <section className="panel applicant-command-panel">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">Applicant Tracker</span>
+            <h2>Candidate pipeline</h2>
+          </div>
+          <div className="button-row">
+            <button className="secondary-action" onClick={() => importInputRef.current?.click()}>
+              <Icon name="import" />
+              Import Candidates
+            </button>
+            <button className="primary-action" onClick={createApplicant}>
+              <Icon name="add" />
+              New Applicant
+            </button>
+          </div>
+        </div>
+      </section>
       <section className="metrics" aria-label="Pipeline metrics">
         <Metric label="Total Applicants" value={metrics.total} icon={<Icon name="applicant" />} />
         <Metric label="Scheduled Interviews" value={metrics.scheduled} icon={<Icon name="clock" />} />
@@ -1179,58 +1136,54 @@ export default function App() {
 
       {activeTab === "Timesheet" && (
         <section className="page-stack">
-          <section className="metrics" aria-label="Timesheet metrics">
-            <Metric label="Current Pay Period" value={`${defaultPayPeriod.start} to ${defaultPayPeriod.end}`} icon={<Icon name="clock" />} />
-            <Metric label="Pay Date" value={defaultPayPeriod.payDate} icon={<Icon name="check" />} />
-            <Metric label="Total Employees" value={timesheetTotals.employees} icon={<Icon name="applicant" />} />
-            <Metric label="Total Hours" value={Number(timesheetTotals.totalHours.toFixed(1))} icon={<Icon name="clock" />} />
-            <Metric label="Regular Hours" value={Number(timesheetTotals.regularHours.toFixed(1))} icon={<Icon name="clock" />} />
-            <Metric label="Overtime Hours" value={Number(timesheetTotals.overtimeHours.toFixed(1))} icon={<Icon name="clock" />} />
-            <Metric label="Estimated Payroll" value={currency(timesheetTotals.totalPayroll)} icon={<Icon name="check" />} />
-            <Metric label="Missing Entries" value={timesheetTotals.missingEntries} icon={<Icon name="close" />} />
-          </section>
-
           <section className="panel">
             <div className="section-heading">
               <div>
                 <span className="eyebrow">Timesheet</span>
-                <h2>Pay period {defaultPayPeriod.start} to {defaultPayPeriod.end}</h2>
+                <h2>My internal pay period {defaultPayPeriod.start} to {defaultPayPeriod.end}</h2>
+                <p>Daily template: 9:00 AM to 1:00 PM / 4 hours / $6/hour / no break</p>
               </div>
               <div className="button-row">
                 <button onClick={addTimesheetEntry}><Icon name="add" />Add Entry</button>
                 <button onClick={exportTimesheetsCsv}><Icon name="copy" />Export CSV</button>
               </div>
             </div>
-            <div className="list-tools one-field">
-              <label className="search-field">
-                <Icon name="search" />
-                <input value={timesheetSearch} onChange={(event) => setTimesheetSearch(event.target.value)} placeholder="Search employee name" />
-              </label>
+            <div className="timesheet-header-card" aria-label="Timesheet summary">
+              <div className="timesheet-summary-grid">
+                <strong>Name</strong>
+                <span>{internalTimesheetOwner}</span>
+                <strong>Total Hours</strong>
+                <span>{timesheetTotals.totalHours.toFixed(2)}</span>
+                <strong>Hourly Rate</strong>
+                <span>{currency(defaultHourlyRate)}</span>
+                <strong>Total Payment</strong>
+                <span>{currency(timesheetTotals.totalPayroll)}</span>
+                <strong>Pay Period</strong>
+                <span>{formatPayPeriodRange(defaultPayPeriod.start, defaultPayPeriod.end)}</span>
+                <strong>Pay Date</strong>
+                <span>{formatShortDateWithYear(defaultPayPeriod.payDate)}</span>
+              </div>
             </div>
             <div className="applicant-table-wrap">
               <table className="applicant-table">
                 <thead>
                   <tr>
-                    <th>Employee</th><th>Date</th><th>Day</th><th>Clock In</th><th>Clock Out</th><th>Break</th><th>Hours</th><th>Rate</th><th>Pay</th><th>Status</th><th>Notes</th><th></th>
+                    <th>Date</th><th>Start Time</th><th>End Time</th><th>Total Hours</th><th>Amount</th><th>Status</th><th>Notes</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTimesheets.map((entry) => {
+                  {currentPeriodTimesheets.map((entry) => {
                     const hours = calculateHours(entry);
                     return (
                       <tr key={entry.id}>
-                        <td><input value={entry.employeeName} onChange={(event) => updateTimesheetEntry(entry.id, { employeeName: event.target.value })} /></td>
-                        <td><input type="date" value={entry.date} onChange={(event) => updateTimesheetEntry(entry.id, { date: event.target.value })} /></td>
-                        <td>{dayName(entry.date)}</td>
-                        <td><input type="time" value={entry.clockIn} onChange={(event) => updateTimesheetEntry(entry.id, { clockIn: event.target.value })} /></td>
-                        <td><input type="time" value={entry.clockOut} onChange={(event) => updateTimesheetEntry(entry.id, { clockOut: event.target.value })} /></td>
-                        <td><input type="number" value={entry.breakMinutes} onChange={(event) => updateTimesheetEntry(entry.id, { breakMinutes: Number(event.target.value) })} /></td>
+                        <td className="timesheet-display-cell"><input aria-label={`Date ${formatSheetDate(entry.date)}`} type="date" value={entry.date} onChange={(event) => updateTimesheetEntry(entry.id, { date: event.target.value })} /><small>{formatSheetDate(entry.date)}</small></td>
+                        <td className="timesheet-time-cell"><input aria-label={`Start time ${formatSheetTime(entry.clockIn)}`} type="time" value={entry.clockIn} onChange={(event) => updateTimesheetEntry(entry.id, { clockIn: event.target.value })} /></td>
+                        <td className="timesheet-time-cell"><input aria-label={`End time ${formatSheetTime(entry.clockOut)}`} type="time" value={entry.clockOut} onChange={(event) => updateTimesheetEntry(entry.id, { clockOut: event.target.value })} /></td>
                         <td>{hours.toFixed(2)}</td>
-                        <td><input type="number" value={entry.hourlyRate} onChange={(event) => updateTimesheetEntry(entry.id, { hourlyRate: Number(event.target.value) })} /></td>
                         <td>{currency(hours * entry.hourlyRate)}</td>
                         <td>
                           <select value={entry.attendanceStatus} onChange={(event) => updateTimesheetEntry(entry.id, { attendanceStatus: event.target.value as TimesheetEntry["attendanceStatus"] })}>
-                            <option>Present</option><option>Absent</option><option>Late</option><option>Incomplete</option>
+                            {timesheetStatuses.map((status) => <option key={status}>{status}</option>)}
                           </select>
                         </td>
                         <td><input value={entry.notes} onChange={(event) => updateTimesheetEntry(entry.id, { notes: event.target.value })} /></td>
@@ -1241,68 +1194,46 @@ export default function App() {
                 </tbody>
               </table>
             </div>
+            {currentPeriodTimesheets.length === 0 && <p className="empty-state">No entries for the current pay period yet.</p>}
           </section>
 
           <section className="dashboard-grid">
             <DashboardPanel title="Hours worked by date">
-              {Array.from(new Set(timesheets.map((entry) => entry.date))).map((date) => (
-                <ChartBar key={date} label={date} value={Number(timesheets.filter((entry) => entry.date === date).reduce((sum, entry) => sum + calculateHours(entry), 0).toFixed(1))} max={Math.max(1, timesheetTotals.totalHours)} />
+              {Array.from(new Set(currentPeriodTimesheets.map((entry) => entry.date))).map((date) => (
+                <ChartBar key={date} label={date} value={Number(currentPeriodTimesheets.filter((entry) => entry.date === date).reduce((sum, entry) => sum + calculateHours(entry), 0).toFixed(1))} max={Math.max(1, timesheetTotals.totalHours)} />
               ))}
             </DashboardPanel>
-            <DashboardPanel title="Estimated payroll by employee">
-              {Array.from(new Set(timesheets.map((entry) => entry.employeeName))).map((employee) => {
-                const pay = timesheets.filter((entry) => entry.employeeName === employee).reduce((sum, entry) => sum + calculateHours(entry) * entry.hourlyRate, 0);
-                return <ChartBar key={employee} label={employee} value={Math.round(pay)} max={Math.max(1, timesheetTotals.totalPayroll)} />;
+            <DashboardPanel title="Estimated pay by date">
+              {Array.from(new Set(currentPeriodTimesheets.map((entry) => entry.date))).map((date) => {
+                const pay = currentPeriodTimesheets.filter((entry) => entry.date === date).reduce((sum, entry) => sum + calculateHours(entry) * entry.hourlyRate, 0);
+                return <ChartBar key={date} label={date} value={Math.round(pay)} max={Math.max(1, timesheetTotals.totalPayroll)} />;
               })}
             </DashboardPanel>
           </section>
-        </section>
-      )}
 
-      {activeTab === "Daily Report" && (
-        <section className="page-stack">
-          <section className="metrics" aria-label="Daily report metrics">
-            <Metric label="Report Status" value={currentReport.status === "Sent" ? 100 : currentReport.status === "Generated" ? 75 : 25} icon={<Icon name="message" />} />
-            <Metric label="Total Daily Tasks" value={dailyMetrics.total} icon={<Icon name="message" />} />
-            <Metric label="Completed" value={dailyMetrics.completed} icon={<Icon name="check" />} />
-            <Metric label="Pending" value={dailyMetrics.pending} icon={<Icon name="clock" />} />
-            <Metric label="Skipped" value={dailyMetrics.skipped} icon={<Icon name="close" />} />
-            <Metric label="Follow-Up Items" value={dailyMetrics.followUp} icon={<Icon name="message" />} />
-            <Metric label="Issues Reported" value={dailyMetrics.issues} icon={<Icon name="close" />} />
-            <Metric label="Reports Sent" value={dailyMetrics.sentThisWeek} icon={<Icon name="send" />} />
-          </section>
-          <section className="panel">
-            <div className="section-heading">
-              <div><span className="eyebrow">Daily Report</span><h2>{currentReport.reportDate} · {dayName(currentReport.reportDate)}</h2></div>
-              <div className="button-row">
-                <button onClick={addDailyTask}><Icon name="add" />Add Task</button>
-                <button onClick={generateEodReport}><Icon name="check" />Generate EOD Report</button>
-                <button onClick={() => updateCurrentReport({ status: "Sent" })}><Icon name="send" />Send to Steve</button>
+          {archivedTimesheetPeriods.length > 0 && (
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">Archive</span>
+                  <h2>Archived pay periods</h2>
+                </div>
               </div>
-            </div>
-            <div className="daily-layout">
-              <div className="form-grid">
-                <TextField label="Prepared By" value={currentReport.preparedBy} onChange={(preparedBy) => updateCurrentReport({ preparedBy })} />
-                <label><span>Status</span><select value={currentReport.status} onChange={(event) => updateCurrentReport({ status: event.target.value as DailyReport["status"] })}><option>Draft</option><option>Generated</option><option>Sent</option></select></label>
-                <TextAreaField label="Summary of Work Completed" value={currentReport.summary} onChange={(summary) => updateCurrentReport({ summary })} />
-                <TextAreaField label="Applicant Tracker Updates" value={currentReport.applicantUpdates} onChange={(applicantUpdates) => updateCurrentReport({ applicantUpdates })} />
-                <TextAreaField label="Timesheet Updates" value={currentReport.timesheetUpdates} onChange={(timesheetUpdates) => updateCurrentReport({ timesheetUpdates })} />
-                <TextAreaField label="Task Updates" value={currentReport.taskUpdates} onChange={(taskUpdates) => updateCurrentReport({ taskUpdates })} />
-                <TextAreaField label="Issues or Concerns" value={currentReport.issues} onChange={(issues) => updateCurrentReport({ issues })} />
-                <TextAreaField label="Pending Items / Next Steps" value={currentReport.pendingItems} onChange={(pendingItems) => updateCurrentReport({ pendingItems })} />
-              </div>
-              <div className="daily-task-list">
-                {currentReport.tasks.map((task) => (
-                  <article className="daily-task" key={task.id}>
-                    <input value={task.name} onChange={(event) => updateDailyTask(task.id, { name: event.target.value })} />
-                    <select value={task.status} onChange={(event) => updateDailyTask(task.id, { status: event.target.value as DailyTaskStatus })}>{dailyTaskStatuses.map((status) => <option key={status}>{status}</option>)}</select>
-                    <input value={task.notes} onChange={(event) => updateDailyTask(task.id, { notes: event.target.value })} placeholder="Notes or screenshot reference" />
-                    <label className="inline-check"><input type="checkbox" checked={task.recurring} onChange={(event) => updateDailyTask(task.id, { recurring: event.target.checked })} />Recurring</label>
+              <div className="archive-list">
+                {archivedTimesheetPeriods.map((archive) => (
+                  <article className="archive-card" key={archive.key}>
+                    <div>
+                      <strong>{formatPayPeriodRange(archive.period.start, archive.period.end)}</strong>
+                      <small>Pay Date: {formatShortDateWithYear(archive.period.payDate)}</small>
+                    </div>
+                    <span>{archive.totalHours.toFixed(2)} hours</span>
+                    <span>{currency(archive.totalPay)}</span>
+                    <span>{archive.entries.length} entr{archive.entries.length === 1 ? "y" : "ies"}</span>
                   </article>
                 ))}
               </div>
-            </div>
-          </section>
+            </section>
+          )}
         </section>
       )}
 

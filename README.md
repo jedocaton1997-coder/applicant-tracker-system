@@ -1,6 +1,6 @@
 # Operations Dashboard
 
-A simple React-based operations dashboard for applicant tracking, payroll timesheets, and daily end-of-day reporting.
+A simple React-based operations dashboard for applicant tracking and an internal personal timesheet.
 
 ## Features
 
@@ -12,8 +12,7 @@ A simple React-based operations dashboard for applicant tracking, payroll timesh
 - Applicant detail popup opened from each board card
 - Search and status filtering
 - CSV candidate import for Indeed exports
-- Timesheet page with pay period details, default $6/hour rate, total hours, overtime, missing-entry alerts, payroll estimates, and CSV export
-- Daily Report page with recurring weekday EOD tasks, editable report sections, task statuses, and generate/send status controls
+- Internal Timesheet page with automatic pay-period cycles anchored from June 22, 2026, a 9:00 AM to 1:00 PM daily template, 4 scheduled hours, default $6/hour rate, VL/SL statuses, pay estimates, and CSV export
 - Status-aware formal message generator
 - Copy, SMS handoff, and email handoff actions
 - Browser localStorage persistence
