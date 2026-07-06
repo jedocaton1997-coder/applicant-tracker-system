@@ -5,7 +5,7 @@ A simple React-based applicant tracker for managing candidates from first contac
 ## Features
 
 - Applicant records for name, email, Calendly link, address, phone, location, job post, interview type, interview location, interview date/time, status, and notes
-- Pipeline metrics for total applicants, scheduled interviews, tomorrow reminders, and follow-ups
+- Pipeline metrics for total applicants, scheduled interviews, tomorrow reminders, today's schedule, and follow-ups
 - Kanban and list views for New Applicant, Contacted, Follow-Up, Scheduled, Confirmed, Passed, Failed, Cancelled, and No Show stages
 - Automatic Follow-Up movement for Contacted applicants after 24 hours with no status change and Scheduled applicants after the interview time passes
 - Applicant detail popup opened from each board card

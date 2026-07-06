@@ -197,6 +197,17 @@ function isTomorrowInterview(value: string) {
   return interviewDate >= tomorrow && interviewDate < dayAfterTomorrow;
 }
 
+function isTodayInterview(value: string) {
+  if (!value) return false;
+  const interviewDate = new Date(value);
+  if (Number.isNaN(interviewDate.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return interviewDate >= today && interviewDate < tomorrow;
+}
+
 function hoursSince(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 0;
@@ -542,24 +553,20 @@ export default function App() {
   }, [filteredApplicants]);
 
   const metrics = useMemo(() => {
+    const activeInterviewStatuses: Status[] = ["Scheduled", "Confirmed"];
+    const todayInterviews = applicants.filter(
+      (applicant) => isTodayInterview(applicant.interviewDateTime) && activeInterviewStatuses.includes(applicant.status),
+    ).length;
     const tomorrowInterviews = applicants.filter(
-      (applicant) => isTomorrowInterview(applicant.interviewDateTime) && !["Failed", "Cancelled", "No Show"].includes(applicant.status),
+      (applicant) => isTomorrowInterview(applicant.interviewDateTime) && activeInterviewStatuses.includes(applicant.status),
     ).length;
     return {
       total: applicants.length,
       scheduled: applicants.filter((a) => ["Scheduled", "Confirmed"].includes(a.status)).length,
       needsFollowUp: applicants.filter((a) => ["Follow-Up", "No Show"].includes(a.status)).length,
+      todayInterviews,
       tomorrowInterviews,
     };
-  }, [applicants]);
-
-  const tomorrowInterviews = useMemo(() => {
-    return applicants
-      .filter(
-        (applicant) =>
-          isTomorrowInterview(applicant.interviewDateTime) && !["Failed", "Cancelled", "No Show"].includes(applicant.status),
-      )
-      .sort((a, b) => new Date(a.interviewDateTime).getTime() - new Date(b.interviewDateTime).getTime());
   }, [applicants]);
 
   const message = buildMessage(selected, messageType);
@@ -681,37 +688,12 @@ export default function App() {
         <Metric label="Total Applicants" value={metrics.total} icon={<Icon name="applicant" />} />
         <Metric label="Scheduled Interviews" value={metrics.scheduled} icon={<Icon name="clock" />} />
         <Metric label="Tomorrow Reminders" value={metrics.tomorrowInterviews} icon={<Icon name="clock" />} />
+        <Metric label="Today Schedule" value={metrics.todayInterviews} icon={<Icon name="clock" />} />
         <Metric label="Needs Follow-Up" value={metrics.needsFollowUp} icon={<Icon name="message" />} />
       </section>
 
       <section className="workspace kanban-workspace">
         <section className="panel kanban-panel">
-          <section className="reminder-panel" aria-label="Tomorrow interview reminders">
-            <div>
-              <span className="eyebrow">Interview Reminders</span>
-              <h2>Scheduled for tomorrow</h2>
-            </div>
-            {tomorrowInterviews.length > 0 ? (
-              <div className="reminder-list">
-                {tomorrowInterviews.map((applicant) => (
-                  <article className="reminder-item" key={applicant.id}>
-                    <button className="reminder-main" onClick={() => openApplicantDetails(applicant.id, "Interview Reminder")}>
-                      <strong>{applicant.name || "Unnamed applicant"}</strong>
-                      <span>{applicant.jobPost || "No job post entered"}</span>
-                      <small>{formatDateTime(applicant.interviewDateTime)}</small>
-                    </button>
-                    <button className="secondary-action" onClick={() => openApplicantDetails(applicant.id, "Interview Reminder")}>
-                      <Icon name="message" />
-                      Open Reminder
-                    </button>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="reminder-empty">No applicant interviews scheduled for tomorrow.</p>
-            )}
-          </section>
-
           <div className="list-tools">
             <label className="search-field">
               <Icon name="search" />
