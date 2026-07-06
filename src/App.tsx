@@ -282,6 +282,20 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function applicantSortValue(applicant: Applicant) {
+  if (!applicant.interviewDateTime) return Number.POSITIVE_INFINITY;
+  const time = new Date(applicant.interviewDateTime).getTime();
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+}
+
+function sortApplicantsForPipeline(applicantsToSort: Applicant[]) {
+  return [...applicantsToSort].sort((a, b) => {
+    const dateDifference = applicantSortValue(a) - applicantSortValue(b);
+    if (dateDifference !== 0) return dateDifference;
+    return (a.name || "Unnamed applicant").localeCompare(b.name || "Unnamed applicant", undefined, { sensitivity: "base" });
+  });
+}
+
 function formatTime(value: string) {
   if (!value) return "the scheduled time";
   return new Intl.DateTimeFormat(undefined, {
@@ -697,19 +711,20 @@ export default function App() {
   }, [selected.id, selected.status]);
 
   const filteredApplicants = useMemo(() => {
-    return applicants.filter((applicant) => {
+    const filtered = applicants.filter((applicant) => {
       const search = `${applicant.name} ${applicant.email} ${applicant.source} ${applicant.jobPost} ${applicant.location} ${applicant.phone}`.toLowerCase();
       const matchesSearch = search.includes(query.toLowerCase());
       const matchesStatus = statusFilter === "All" || applicant.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
+    return sortApplicantsForPipeline(filtered);
   }, [applicants, query, statusFilter]);
 
   const kanbanStatuses = statusFilter === "All" ? statuses : [statusFilter];
   const groupedApplicants = useMemo(() => {
     return statuses.reduce(
       (groups, status) => {
-        groups[status] = filteredApplicants.filter((applicant) => applicant.status === status);
+        groups[status] = sortApplicantsForPipeline(filteredApplicants.filter((applicant) => applicant.status === status));
         return groups;
       },
       {} as Record<Status, Applicant[]>,
