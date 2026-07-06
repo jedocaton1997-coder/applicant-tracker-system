@@ -6,7 +6,7 @@ A simple React-based applicant tracker for managing candidates from first contac
 
 - Applicant records for name, email, Calendly link, address, phone, location, job post, interview type, interview location, interview date/time, status, and notes
 - Pipeline metrics for total applicants, scheduled interviews, tomorrow reminders, and follow-ups
-- Kanban status board for New Applicant, Contacted, Follow-Up, Scheduled, Passed, Failed, Cancelled, and No Show stages
+- Kanban status board for New Applicant, Contacted, Follow-Up, Scheduled, Confirmed, Passed, Failed, Cancelled, and No Show stages
 - Applicant detail popup opened from each board card
 - Search and status filtering
 - CSV candidate import for Indeed exports

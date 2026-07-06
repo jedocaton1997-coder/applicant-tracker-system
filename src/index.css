@@ -284,7 +284,8 @@ h3 {
   background: var(--orange);
 }
 
-.status-scheduled {
+.status-scheduled,
+.status-confirmed {
   background: var(--blue);
 }
 

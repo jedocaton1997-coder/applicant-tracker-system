@@ -5,6 +5,7 @@ type Status =
   | "Contacted"
   | "Follow-Up"
   | "Scheduled"
+  | "Confirmed"
   | "Passed"
   | "Failed"
   | "Cancelled"
@@ -40,7 +41,7 @@ type Applicant = {
   createdAt: string;
 };
 
-const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Passed", "Failed", "Cancelled", "No Show"];
+const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Confirmed", "Passed", "Failed", "Cancelled", "No Show"];
 
 const messageTypes: MessageType[] = [
   "First Message",
@@ -250,6 +251,7 @@ function mapIndeedStatus(value: string): Status {
   if (status.includes("cancel")) return "Cancelled";
   if (status.includes("reject")) return "Failed";
   if (status.includes("no show")) return "No Show";
+  if (status.includes("confirm")) return "Confirmed";
   if (status.includes("scheduled") || status.includes("interview")) return "Scheduled";
   if (status.includes("follow")) return "Follow-Up";
   if (status.includes("pass")) return "Passed";
@@ -334,6 +336,7 @@ function suggestedMessageType(status: Status): MessageType {
     Contacted: "First Message",
     "Follow-Up": "Follow-Up Message",
     Scheduled: "Interview Confirmation",
+    Confirmed: "Interview Confirmation",
     Passed: "Congratulations Message",
     Failed: "Rejection Message",
     Cancelled: "Reschedule Message",
@@ -488,7 +491,7 @@ export default function App() {
     ).length;
     return {
       total: applicants.length,
-      scheduled: applicants.filter((a) => a.status === "Scheduled").length,
+      scheduled: applicants.filter((a) => ["Scheduled", "Confirmed"].includes(a.status)).length,
       needsFollowUp: applicants.filter((a) => ["Follow-Up", "No Show"].includes(a.status)).length,
       tomorrowInterviews,
     };
