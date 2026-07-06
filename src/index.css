@@ -211,7 +211,7 @@ h3 {
 .list-tools {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(220px, 1fr) 220px;
+  grid-template-columns: minmax(220px, 1fr) 220px auto;
   margin-bottom: 14px;
 }
 
@@ -233,6 +233,33 @@ h3 {
   border: 0;
   outline: 0;
   width: 100%;
+}
+
+.view-toggle {
+  align-items: center;
+  background: #f8fbfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 4px;
+  min-height: 42px;
+  padding: 4px;
+}
+
+.view-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.view-toggle button.active {
+  background: #173f35;
+  color: #fff;
 }
 
 .applicant-cards {
@@ -472,6 +499,78 @@ h3 {
 
 .kanban-empty {
   margin: 8px 2px;
+}
+
+.applicant-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.applicant-table {
+  background: #fff;
+  border-collapse: collapse;
+  min-width: 980px;
+  width: 100%;
+}
+
+.applicant-table th,
+.applicant-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.applicant-table th {
+  background: #f8fbfa;
+  color: #41504d;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.applicant-table tr.active td {
+  background: rgba(225, 242, 235, 0.48);
+}
+
+.applicant-table td {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.applicant-table td:nth-child(2),
+.applicant-table td:nth-child(6) {
+  max-width: 260px;
+}
+
+.applicant-table select {
+  min-height: 34px;
+  min-width: 150px;
+  padding: 7px 8px;
+}
+
+.table-name {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  text-align: left;
+}
+
+.table-name strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.table-name span,
+.applicant-table small {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
 }
 
 .panel-heading {

@@ -476,6 +476,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(applicants[0]?.id ?? "new");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "All">("All");
+  const [viewMode, setViewMode] = useState<"Kanban" | "List">("Kanban");
   const [messageType, setMessageType] = useState<MessageType>("First Message");
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [importSummary, setImportSummary] = useState("");
@@ -725,31 +726,83 @@ export default function App() {
                 ))}
               </select>
             </label>
+            <div className="view-toggle" aria-label="Applicant view">
+              {(["Kanban", "List"] as const).map((mode) => (
+                <button className={viewMode === mode ? "active" : ""} key={mode} onClick={() => setViewMode(mode)}>
+                  {mode}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="kanban-board" aria-label="Applicant status board">
-            {kanbanStatuses.map((status) => (
-              <section className="kanban-column" key={status}>
-                <header>
-                  <span className={`status-dot status-${status.toLowerCase().replaceAll(" ", "-")}`} />
-                  <strong>{status}</strong>
-                  <em>{groupedApplicants[status]?.length ?? 0}</em>
-                </header>
-                <div className="kanban-cards">
-                  {(groupedApplicants[status] ?? []).map((applicant) => (
-                    <article className={applicant.id === selected.id ? "kanban-card active" : "kanban-card"} key={applicant.id}>
-                      <button
-                        className="kanban-card-main"
-                        onClick={() => {
-                          openApplicantDetails(applicant.id);
-                        }}
-                      >
-                        <strong>{applicant.name || "Unnamed applicant"}</strong>
-                        <span>{applicant.jobPost || "No job post entered"}</span>
-                        <small>{formatDateTime(applicant.interviewDateTime)}</small>
-                      </button>
-                      <label className="kanban-status-select">
-                        <span>Status</span>
+          {viewMode === "Kanban" ? (
+            <div className="kanban-board" aria-label="Applicant status board">
+              {kanbanStatuses.map((status) => (
+                <section className="kanban-column" key={status}>
+                  <header>
+                    <span className={`status-dot status-${status.toLowerCase().replaceAll(" ", "-")}`} />
+                    <strong>{status}</strong>
+                    <em>{groupedApplicants[status]?.length ?? 0}</em>
+                  </header>
+                  <div className="kanban-cards">
+                    {(groupedApplicants[status] ?? []).map((applicant) => (
+                      <article className={applicant.id === selected.id ? "kanban-card active" : "kanban-card"} key={applicant.id}>
+                        <button
+                          className="kanban-card-main"
+                          onClick={() => {
+                            openApplicantDetails(applicant.id);
+                          }}
+                        >
+                          <strong>{applicant.name || "Unnamed applicant"}</strong>
+                          <span>{applicant.jobPost || "No job post entered"}</span>
+                          <small>{formatDateTime(applicant.interviewDateTime)}</small>
+                        </button>
+                        <label className="kanban-status-select">
+                          <span>Status</span>
+                          <select
+                            value={applicant.status}
+                            onChange={(event) => {
+                              setSelectedId(applicant.id);
+                              saveApplicant({ ...applicant, status: event.target.value as Status });
+                            }}
+                          >
+                            {statuses.map((option) => (
+                              <option key={option}>{option}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </article>
+                    ))}
+                    {(groupedApplicants[status] ?? []).length === 0 && <p className="kanban-empty">No applicants</p>}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="applicant-table-wrap">
+              <table className="applicant-table">
+                <thead>
+                  <tr>
+                    <th>Applicant</th>
+                    <th>Job Post</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Interview</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredApplicants.map((applicant) => (
+                    <tr className={applicant.id === selected.id ? "active" : ""} key={applicant.id}>
+                      <td>
+                        <button className="table-name" onClick={() => openApplicantDetails(applicant.id)}>
+                          <strong>{applicant.name || "Unnamed applicant"}</strong>
+                          <span>{applicant.email || "No email"}</span>
+                        </button>
+                      </td>
+                      <td>{applicant.jobPost || "No job post entered"}</td>
+                      <td>{applicant.phone || "No phone"}</td>
+                      <td>
                         <select
                           value={applicant.status}
                           onChange={(event) => {
@@ -761,14 +814,18 @@ export default function App() {
                             <option key={option}>{option}</option>
                           ))}
                         </select>
-                      </label>
-                    </article>
+                      </td>
+                      <td>
+                        <span>{formatDateTime(applicant.interviewDateTime)}</span>
+                        <small>{applicant.interviewType}</small>
+                      </td>
+                      <td>{applicant.notes || "No notes"}</td>
+                    </tr>
                   ))}
-                  {(groupedApplicants[status] ?? []).length === 0 && <p className="kanban-empty">No applicants</p>}
-                </div>
-              </section>
-            ))}
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )}
           {filteredApplicants.length === 0 && <p className="empty-state">No applicants match the current filters.</p>}
         </section>
 
