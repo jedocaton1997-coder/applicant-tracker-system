@@ -42,7 +42,79 @@ type Applicant = {
   statusUpdatedAt: string;
 };
 
+type ActiveTab = "Dashboard" | "Applicant Tracker" | "Timesheet" | "Steve To Do List" | "Daily Report";
+
+type TimesheetEntry = {
+  id: string;
+  employeeName: string;
+  date: string;
+  clockIn: string;
+  clockOut: string;
+  breakMinutes: number;
+  hourlyRate: number;
+  attendanceStatus: "Present" | "Absent" | "Late" | "Incomplete";
+  notes: string;
+  payPeriodStart: string;
+  payPeriodEnd: string;
+  payDate: string;
+};
+
+type TaskStatus = "Pending" | "In progress" | "Completed" | "Overdue" | "On hold" | "Canceled";
+type TaskPriority = "Low" | "Medium" | "High" | "Urgent";
+
+type SteveTask = {
+  id: string;
+  name: string;
+  category: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate: string;
+  assignedPerson: string;
+  notes: string;
+  createdAt: string;
+  completionDate: string;
+  recurring: boolean;
+  attachment: string;
+};
+
+type DailyTaskStatus = "Not started" | "In progress" | "Completed" | "Skipped" | "Needs follow-up";
+
+type DailyTask = {
+  id: string;
+  name: string;
+  status: DailyTaskStatus;
+  notes: string;
+  recurring: boolean;
+};
+
+type DailyReport = {
+  id: string;
+  reportDate: string;
+  preparedBy: string;
+  status: "Draft" | "Generated" | "Sent";
+  summary: string;
+  applicantUpdates: string;
+  timesheetUpdates: string;
+  taskUpdates: string;
+  financeUpdates: string;
+  reminderUpdates: string;
+  appointmentUpdates: string;
+  routeDataConfirmation: string;
+  auditReportStatus: string;
+  fleetScreenshotStatus: string;
+  issues: string;
+  pendingItems: string;
+  recommendations: string;
+  nextSteps: string;
+  finalNotes: string;
+  tasks: DailyTask[];
+};
+
 const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Confirmed", "Passed", "Failed", "Cancelled", "No Show"];
+const tabs: ActiveTab[] = ["Dashboard", "Applicant Tracker", "Timesheet", "Steve To Do List", "Daily Report"];
+const taskStatuses: TaskStatus[] = ["Pending", "In progress", "Completed", "Overdue", "On hold", "Canceled"];
+const taskPriorities: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
+const dailyTaskStatuses: DailyTaskStatus[] = ["Not started", "In progress", "Completed", "Skipped", "Needs follow-up"];
 
 const messageTypes: MessageType[] = [
   "First Message",
@@ -77,6 +149,17 @@ const defaultApplicationSource = "Indeed";
 const defaultCalendlyUrl = "https://calendly.com/steve-systemoriented/seasonal-delivery-driver";
 const defaultInterviewLocation = "Panera Bread\n10914 Baltimore Ave, Beltsville, MD 20705, United States";
 const contactedFollowUpHours = 24;
+const defaultHourlyRate = 6;
+
+const recurringDailyTaskNames = [
+  "DAILY - SEND REPORT TO STEVE FINANCE REMINDER OR APPOINTMENT",
+  "DAILY - SCHEDULE 5AM MESSAGE BELTSVILLE HUB AND IKEA STORE",
+  "DAILY - SCHEDULE 10AM MESSAGE BELTSVILLE HUB TEAM",
+  "DAILY - SCHEDULE MESSAGE TO IKEA STORE TEAM",
+  "DAILY - CONFIRM CURRENT-DAY ROUTE DATA",
+  "DAILY - SEND AUDIT REPORT AFTER ENTERING DATA INTO THE TRACKER",
+  "DAILY - SEND SCREENSHOT FROM FLEET PROFITABILITY AUDIT",
+];
 
 function Icon({ name }: { name: keyof typeof iconLabels }) {
   return (
@@ -142,6 +225,88 @@ const starterApplicants: Applicant[] = [
   },
 ];
 
+const defaultPayPeriod = {
+  start: "2026-06-22",
+  end: "2026-07-03",
+  payDate: "2026-07-06",
+};
+
+const starterTimesheets: TimesheetEntry[] = [
+  {
+    id: crypto.randomUUID(),
+    employeeName: "Jedo Caton",
+    date: "2026-07-01",
+    clockIn: "08:00",
+    clockOut: "16:30",
+    breakMinutes: 30,
+    hourlyRate: defaultHourlyRate,
+    attendanceStatus: "Present",
+    notes: "Completed route data and applicant updates.",
+    payPeriodStart: defaultPayPeriod.start,
+    payPeriodEnd: defaultPayPeriod.end,
+    payDate: defaultPayPeriod.payDate,
+  },
+  {
+    id: crypto.randomUUID(),
+    employeeName: "Steve Team",
+    date: "2026-07-02",
+    clockIn: "09:00",
+    clockOut: "15:00",
+    breakMinutes: 0,
+    hourlyRate: defaultHourlyRate,
+    attendanceStatus: "Present",
+    notes: "Finance reminders and audit follow-up.",
+    payPeriodStart: defaultPayPeriod.start,
+    payPeriodEnd: defaultPayPeriod.end,
+    payDate: defaultPayPeriod.payDate,
+  },
+];
+
+const starterSteveTasks: SteveTask[] = [
+  {
+    id: crypto.randomUUID(),
+    name: "Review applicant confirmations",
+    category: "Applicant Tracker",
+    priority: "High",
+    status: "Pending",
+    dueDate: toInputDate(new Date()),
+    assignedPerson: "Jedo",
+    notes: "Confirm pending interview attendees before 10:00 AM.",
+    createdAt: new Date().toISOString(),
+    completionDate: "",
+    recurring: true,
+    attachment: "",
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Send finance reminder or appointment report to Steve",
+    category: "Daily Report",
+    priority: "High",
+    status: "In progress",
+    dueDate: toInputDate(new Date()),
+    assignedPerson: "Jedo",
+    notes: "Include finance reminders, appointments, and EOD updates.",
+    createdAt: new Date().toISOString(),
+    completionDate: "",
+    recurring: true,
+    attachment: "",
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Prepare fleet profitability audit screenshot",
+    category: "Audit",
+    priority: "Medium",
+    status: "Pending",
+    dueDate: toInputDate(new Date()),
+    assignedPerson: "Jedo",
+    notes: "Attach screenshot reference in Daily Report.",
+    createdAt: new Date().toISOString(),
+    completionDate: "",
+    recurring: true,
+    attachment: "",
+  },
+];
+
 function nextSlot(daysFromNow: number, hour: number) {
   const date = new Date();
   date.setDate(date.getDate() + daysFromNow);
@@ -149,10 +314,21 @@ function nextSlot(daysFromNow: number, hour: number) {
   return toInputDateTime(date);
 }
 
+function toInputDate(date: Date) {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
 function toInputDateTime(date: Date) {
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60_000);
   return local.toISOString().slice(0, 16);
+}
+
+function dayName(value: string) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(new Date(`${value}T12:00:00`));
 }
 
 function formatDateTime(value: string) {
@@ -370,6 +546,88 @@ function loadSavedApplicants() {
   }
 }
 
+function loadSavedTimesheets() {
+  try {
+    const saved = localStorage.getItem("ops-timesheets");
+    if (!saved) return starterTimesheets;
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : starterTimesheets;
+  } catch {
+    return starterTimesheets;
+  }
+}
+
+function loadSavedSteveTasks() {
+  try {
+    const saved = localStorage.getItem("ops-steve-tasks");
+    if (!saved) return starterSteveTasks;
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : starterSteveTasks;
+  } catch {
+    return starterSteveTasks;
+  }
+}
+
+function createDailyReport(date = toInputDate(new Date())): DailyReport {
+  return {
+    id: date,
+    reportDate: date,
+    preparedBy: "Jedo",
+    status: "Draft",
+    summary: "",
+    applicantUpdates: "",
+    timesheetUpdates: "",
+    taskUpdates: "",
+    financeUpdates: "",
+    reminderUpdates: "",
+    appointmentUpdates: "",
+    routeDataConfirmation: "",
+    auditReportStatus: "",
+    fleetScreenshotStatus: "",
+    issues: "",
+    pendingItems: "",
+    recommendations: "",
+    nextSteps: "",
+    finalNotes: "",
+    tasks: recurringDailyTaskNames.map((name) => ({
+      id: crypto.randomUUID(),
+      name,
+      status: "Not started",
+      notes: "",
+      recurring: true,
+    })),
+  };
+}
+
+function loadSavedDailyReports() {
+  const today = toInputDate(new Date());
+  try {
+    const saved = localStorage.getItem("ops-daily-reports");
+    if (!saved) return [createDailyReport(today)];
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [createDailyReport(today)];
+    return parsed.some((report) => report.reportDate === today) ? parsed : [createDailyReport(today), ...parsed];
+  } catch {
+    return [createDailyReport(today)];
+  }
+}
+
+function calculateHours(entry: TimesheetEntry) {
+  if (!entry.clockIn || !entry.clockOut) return 0;
+  const start = new Date(`${entry.date}T${entry.clockIn}`);
+  const end = new Date(`${entry.date}T${entry.clockOut}`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return 0;
+  return Math.max(0, (end.getTime() - start.getTime()) / 36e5 - entry.breakMinutes / 60);
+}
+
+function calculateOvertime(hours: number) {
+  return Math.max(0, hours - 8);
+}
+
+function currency(value: number) {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(value);
+}
+
 function suggestedMessageType(status: Status): MessageType {
   const map: Record<Status, MessageType> = {
     "New Applicant": "First Message",
@@ -483,11 +741,17 @@ ${signature}`,
 
 export default function App() {
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("Dashboard");
   const [applicants, setApplicants] = useState<Applicant[]>(loadSavedApplicants);
+  const [timesheets, setTimesheets] = useState<TimesheetEntry[]>(loadSavedTimesheets);
+  const [steveTasks, setSteveTasks] = useState<SteveTask[]>(loadSavedSteveTasks);
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>(loadSavedDailyReports);
   const [selectedId, setSelectedId] = useState(applicants[0]?.id ?? "new");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "All">("All");
   const [viewMode, setViewMode] = useState<"Kanban" | "List">("Kanban");
+  const [timesheetSearch, setTimesheetSearch] = useState("");
+  const [taskSearch, setTaskSearch] = useState("");
   const [messageType, setMessageType] = useState<MessageType>("First Message");
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [importSummary, setImportSummary] = useState("");
@@ -497,6 +761,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("ats-applicants", JSON.stringify(applicants));
   }, [applicants]);
+
+  useEffect(() => {
+    localStorage.setItem("ops-timesheets", JSON.stringify(timesheets));
+  }, [timesheets]);
+
+  useEffect(() => {
+    localStorage.setItem("ops-steve-tasks", JSON.stringify(steveTasks));
+  }, [steveTasks]);
+
+  useEffect(() => {
+    localStorage.setItem("ops-daily-reports", JSON.stringify(dailyReports));
+  }, [dailyReports]);
 
   useEffect(() => {
     const moveStaleApplicants = () => {
@@ -570,6 +846,53 @@ export default function App() {
   }, [applicants]);
 
   const message = buildMessage(selected, messageType);
+  const currentReport = dailyReports.find((report) => report.reportDate === toInputDate(new Date())) ?? dailyReports[0] ?? createDailyReport();
+  const filteredTimesheets = useMemo(() => {
+    return timesheets.filter((entry) => entry.employeeName.toLowerCase().includes(timesheetSearch.toLowerCase()));
+  }, [timesheets, timesheetSearch]);
+  const filteredTasks = useMemo(() => {
+    return steveTasks.filter((task) => `${task.name} ${task.category} ${task.assignedPerson}`.toLowerCase().includes(taskSearch.toLowerCase()));
+  }, [steveTasks, taskSearch]);
+  const timesheetTotals = useMemo(() => {
+    const totalHours = timesheets.reduce((sum, entry) => sum + calculateHours(entry), 0);
+    const overtimeHours = timesheets.reduce((sum, entry) => sum + calculateOvertime(calculateHours(entry)), 0);
+    const totalPayroll = timesheets.reduce((sum, entry) => sum + calculateHours(entry) * entry.hourlyRate, 0);
+    return {
+      totalHours,
+      overtimeHours,
+      regularHours: Math.max(0, totalHours - overtimeHours),
+      totalPayroll,
+      employees: new Set(timesheets.map((entry) => entry.employeeName)).size,
+      missingEntries: timesheets.filter((entry) => !entry.clockIn || !entry.clockOut || entry.attendanceStatus === "Incomplete").length,
+    };
+  }, [timesheets]);
+  const taskMetrics = useMemo(() => {
+    const today = toInputDate(new Date());
+    const weekEnd = new Date();
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    return {
+      total: steveTasks.length,
+      completed: steveTasks.filter((task) => task.status === "Completed").length,
+      pending: steveTasks.filter((task) => task.status === "Pending").length,
+      inProgress: steveTasks.filter((task) => task.status === "In progress").length,
+      overdue: steveTasks.filter((task) => task.status === "Overdue" || (task.dueDate && task.dueDate < today && task.status !== "Completed")).length,
+      highPriority: steveTasks.filter((task) => ["High", "Urgent"].includes(task.priority)).length,
+      dueToday: steveTasks.filter((task) => task.dueDate === today).length,
+      dueThisWeek: steveTasks.filter((task) => task.dueDate && new Date(`${task.dueDate}T12:00:00`) <= weekEnd).length,
+    };
+  }, [steveTasks]);
+  const dailyMetrics = useMemo(() => {
+    const tasks = currentReport.tasks;
+    return {
+      total: tasks.length,
+      completed: tasks.filter((task) => task.status === "Completed").length,
+      pending: tasks.filter((task) => !["Completed", "Skipped"].includes(task.status)).length,
+      skipped: tasks.filter((task) => task.status === "Skipped").length,
+      followUp: tasks.filter((task) => task.status === "Needs follow-up").length,
+      issues: currentReport.issues ? 1 : 0,
+      sentThisWeek: dailyReports.filter((report) => report.status === "Sent").length,
+    };
+  }, [currentReport, dailyReports]);
 
   function openApplicantDetails(id: string, type?: MessageType) {
     if (type) {
@@ -654,6 +977,144 @@ export default function App() {
     if (importInputRef.current) importInputRef.current.value = "";
   }
 
+  function addTimesheetEntry() {
+    const today = toInputDate(new Date());
+    setTimesheets((current) => [
+      {
+        id: crypto.randomUUID(),
+        employeeName: "New Employee",
+        date: today,
+        clockIn: "08:00",
+        clockOut: "16:00",
+        breakMinutes: 30,
+        hourlyRate: defaultHourlyRate,
+        attendanceStatus: "Present",
+        notes: "",
+        payPeriodStart: defaultPayPeriod.start,
+        payPeriodEnd: defaultPayPeriod.end,
+        payDate: defaultPayPeriod.payDate,
+      },
+      ...current,
+    ]);
+  }
+
+  function updateTimesheetEntry(id: string, patch: Partial<TimesheetEntry>) {
+    setTimesheets((current) => current.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
+  }
+
+  function deleteTimesheetEntry(id: string) {
+    setTimesheets((current) => current.filter((entry) => entry.id !== id));
+  }
+
+  function exportTimesheetsCsv() {
+    const header = ["Employee", "Date", "Day", "Clock In", "Clock Out", "Break Minutes", "Hours", "Rate", "Estimated Pay", "Status", "Notes"];
+    const rows = timesheets.map((entry) => [
+      entry.employeeName,
+      entry.date,
+      dayName(entry.date),
+      entry.clockIn,
+      entry.clockOut,
+      String(entry.breakMinutes),
+      calculateHours(entry).toFixed(2),
+      String(entry.hourlyRate),
+      (calculateHours(entry) * entry.hourlyRate).toFixed(2),
+      entry.attendanceStatus,
+      entry.notes,
+    ]);
+    const csv = [header, ...rows].map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "timesheets.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function addSteveTask() {
+    setSteveTasks((current) => [
+      {
+        id: crypto.randomUUID(),
+        name: "New task",
+        category: "Operations",
+        priority: "Medium",
+        status: "Pending",
+        dueDate: toInputDate(new Date()),
+        assignedPerson: "Jedo",
+        notes: "",
+        createdAt: new Date().toISOString(),
+        completionDate: "",
+        recurring: false,
+        attachment: "",
+      },
+      ...current,
+    ]);
+  }
+
+  function updateSteveTask(id: string, patch: Partial<SteveTask>) {
+    setSteveTasks((current) =>
+      current.map((task) =>
+        task.id === id
+          ? {
+              ...task,
+              ...patch,
+              completionDate: patch.status === "Completed" ? new Date().toISOString() : task.completionDate,
+            }
+          : task,
+      ),
+    );
+  }
+
+  function deleteSteveTask(id: string) {
+    setSteveTasks((current) => current.filter((task) => task.id !== id));
+  }
+
+  function moveTaskToDailyReport(task: SteveTask) {
+    setDailyReports((current) =>
+      current.map((report) =>
+        report.id === currentReport.id
+          ? {
+              ...report,
+              tasks: [
+                ...report.tasks,
+                { id: crypto.randomUUID(), name: task.name, status: "Not started", notes: task.notes, recurring: task.recurring },
+              ],
+            }
+          : report,
+      ),
+    );
+  }
+
+  function updateCurrentReport(patch: Partial<DailyReport>) {
+    setDailyReports((current) => current.map((report) => (report.id === currentReport.id ? { ...report, ...patch } : report)));
+  }
+
+  function updateDailyTask(id: string, patch: Partial<DailyTask>) {
+    setDailyReports((current) =>
+      current.map((report) =>
+        report.id === currentReport.id
+          ? { ...report, tasks: report.tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)) }
+          : report,
+      ),
+    );
+  }
+
+  function addDailyTask() {
+    setDailyReports((current) =>
+      current.map((report) =>
+        report.id === currentReport.id
+          ? {
+              ...report,
+              tasks: [...report.tasks, { id: crypto.randomUUID(), name: "New daily report task", status: "Not started", notes: "", recurring: false }],
+            }
+          : report,
+      ),
+    );
+  }
+
+  function generateEodReport() {
+    updateCurrentReport({ status: "Generated", summary: currentReport.summary || "Daily report generated from current operations dashboard data." });
+  }
+
   return (
     <main className="ats-shell">
       <header className="topbar">
@@ -682,8 +1143,73 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="main-tabs" aria-label="Main operations pages">
+        {tabs.map((tab) => (
+          <button className={activeTab === tab ? "active" : ""} key={tab} onClick={() => setActiveTab(tab)}>
+            {tab}
+          </button>
+        ))}
+      </nav>
+
       {importSummary && <p className="import-summary">{importSummary}</p>}
 
+      {activeTab === "Dashboard" && (
+        <>
+          <section className="metrics dashboard-metrics" aria-label="Operations dashboard metrics">
+            <Metric label="Total Applicants" value={metrics.total} icon={<Icon name="applicant" />} />
+            <Metric label="Confirmed Interviews" value={applicants.filter((a) => a.status === "Confirmed").length} icon={<Icon name="check" />} />
+            <Metric label="Pending Confirmations" value={applicants.filter((a) => a.status === "Scheduled").length} icon={<Icon name="clock" />} />
+            <Metric label="Canceled Interviews" value={applicants.filter((a) => a.status === "Cancelled").length} icon={<Icon name="close" />} />
+            <Metric label="Timesheet Hours" value={Number(timesheetTotals.totalHours.toFixed(1))} icon={<Icon name="clock" />} />
+            <Metric label="Estimated Payroll" value={currency(timesheetTotals.totalPayroll)} icon={<Icon name="check" />} />
+            <Metric label="Steve Tasks" value={taskMetrics.total} icon={<Icon name="message" />} />
+            <Metric label="Pending Tasks" value={taskMetrics.pending} icon={<Icon name="clock" />} />
+            <Metric label="Completed Tasks" value={taskMetrics.completed} icon={<Icon name="check" />} />
+            <Metric label="Overdue Tasks" value={taskMetrics.overdue} icon={<Icon name="close" />} />
+            <Metric label="Daily Report Status" value={currentReport.status === "Sent" ? 100 : currentReport.status === "Generated" ? 75 : 25} icon={<Icon name="message" />} />
+            <Metric label="Pending EOD Items" value={dailyMetrics.pending} icon={<Icon name="clock" />} />
+          </section>
+
+          <section className="dashboard-grid">
+            <DashboardPanel title="Applicant status breakdown">
+              {statuses.map((status) => (
+                <ChartBar key={status} label={status} value={applicants.filter((applicant) => applicant.status === status).length} max={Math.max(1, applicants.length)} />
+              ))}
+            </DashboardPanel>
+            <DashboardPanel title="Timesheet hours by employee">
+              {Array.from(new Set(timesheets.map((entry) => entry.employeeName))).map((employee) => {
+                const hours = timesheets.filter((entry) => entry.employeeName === employee).reduce((sum, entry) => sum + calculateHours(entry), 0);
+                return <ChartBar key={employee} label={employee} value={Number(hours.toFixed(1))} max={Math.max(1, timesheetTotals.totalHours)} />;
+              })}
+            </DashboardPanel>
+            <DashboardPanel title="Task completion progress">
+              <ChartBar label="Completed" value={taskMetrics.completed} max={Math.max(1, taskMetrics.total)} />
+              <ChartBar label="Pending" value={taskMetrics.pending} max={Math.max(1, taskMetrics.total)} />
+              <ChartBar label="In progress" value={taskMetrics.inProgress} max={Math.max(1, taskMetrics.total)} />
+              <ChartBar label="Overdue" value={taskMetrics.overdue} max={Math.max(1, taskMetrics.total)} />
+            </DashboardPanel>
+            <DashboardPanel title="Daily report completion">
+              <ChartBar label="Completed daily tasks" value={dailyMetrics.completed} max={Math.max(1, dailyMetrics.total)} />
+              <ChartBar label="Pending daily tasks" value={dailyMetrics.pending} max={Math.max(1, dailyMetrics.total)} />
+              <ChartBar label="Issues or reminders" value={dailyMetrics.issues + dailyMetrics.followUp} max={Math.max(1, dailyMetrics.total)} />
+            </DashboardPanel>
+          </section>
+
+          <section className="quick-links panel">
+            <span className="eyebrow">Quick Links</span>
+            <div className="button-row">
+              {tabs.filter((tab) => tab !== "Dashboard").map((tab) => (
+                <button key={tab} onClick={() => setActiveTab(tab)}>
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeTab === "Applicant Tracker" && (
+        <>
       <section className="metrics" aria-label="Pipeline metrics">
         <Metric label="Total Applicants" value={metrics.total} icon={<Icon name="applicant" />} />
         <Metric label="Scheduled Interviews" value={metrics.scheduled} icon={<Icon name="clock" />} />
@@ -812,6 +1338,177 @@ export default function App() {
         </section>
 
       </section>
+        </>
+      )}
+
+      {activeTab === "Timesheet" && (
+        <section className="page-stack">
+          <section className="metrics" aria-label="Timesheet metrics">
+            <Metric label="Current Pay Period" value={`${defaultPayPeriod.start} to ${defaultPayPeriod.end}`} icon={<Icon name="clock" />} />
+            <Metric label="Pay Date" value={defaultPayPeriod.payDate} icon={<Icon name="check" />} />
+            <Metric label="Total Employees" value={timesheetTotals.employees} icon={<Icon name="applicant" />} />
+            <Metric label="Total Hours" value={Number(timesheetTotals.totalHours.toFixed(1))} icon={<Icon name="clock" />} />
+            <Metric label="Regular Hours" value={Number(timesheetTotals.regularHours.toFixed(1))} icon={<Icon name="clock" />} />
+            <Metric label="Overtime Hours" value={Number(timesheetTotals.overtimeHours.toFixed(1))} icon={<Icon name="clock" />} />
+            <Metric label="Estimated Payroll" value={currency(timesheetTotals.totalPayroll)} icon={<Icon name="check" />} />
+            <Metric label="Missing Entries" value={timesheetTotals.missingEntries} icon={<Icon name="close" />} />
+          </section>
+
+          <section className="panel">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">Timesheet</span>
+                <h2>Pay period {defaultPayPeriod.start} to {defaultPayPeriod.end}</h2>
+              </div>
+              <div className="button-row">
+                <button onClick={addTimesheetEntry}><Icon name="add" />Add Entry</button>
+                <button onClick={exportTimesheetsCsv}><Icon name="copy" />Export CSV</button>
+              </div>
+            </div>
+            <div className="list-tools one-field">
+              <label className="search-field">
+                <Icon name="search" />
+                <input value={timesheetSearch} onChange={(event) => setTimesheetSearch(event.target.value)} placeholder="Search employee name" />
+              </label>
+            </div>
+            <div className="applicant-table-wrap">
+              <table className="applicant-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th><th>Date</th><th>Day</th><th>Clock In</th><th>Clock Out</th><th>Break</th><th>Hours</th><th>Rate</th><th>Pay</th><th>Status</th><th>Notes</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTimesheets.map((entry) => {
+                    const hours = calculateHours(entry);
+                    return (
+                      <tr key={entry.id}>
+                        <td><input value={entry.employeeName} onChange={(event) => updateTimesheetEntry(entry.id, { employeeName: event.target.value })} /></td>
+                        <td><input type="date" value={entry.date} onChange={(event) => updateTimesheetEntry(entry.id, { date: event.target.value })} /></td>
+                        <td>{dayName(entry.date)}</td>
+                        <td><input type="time" value={entry.clockIn} onChange={(event) => updateTimesheetEntry(entry.id, { clockIn: event.target.value })} /></td>
+                        <td><input type="time" value={entry.clockOut} onChange={(event) => updateTimesheetEntry(entry.id, { clockOut: event.target.value })} /></td>
+                        <td><input type="number" value={entry.breakMinutes} onChange={(event) => updateTimesheetEntry(entry.id, { breakMinutes: Number(event.target.value) })} /></td>
+                        <td>{hours.toFixed(2)}</td>
+                        <td><input type="number" value={entry.hourlyRate} onChange={(event) => updateTimesheetEntry(entry.id, { hourlyRate: Number(event.target.value) })} /></td>
+                        <td>{currency(hours * entry.hourlyRate)}</td>
+                        <td>
+                          <select value={entry.attendanceStatus} onChange={(event) => updateTimesheetEntry(entry.id, { attendanceStatus: event.target.value as TimesheetEntry["attendanceStatus"] })}>
+                            <option>Present</option><option>Absent</option><option>Late</option><option>Incomplete</option>
+                          </select>
+                        </td>
+                        <td><input value={entry.notes} onChange={(event) => updateTimesheetEntry(entry.id, { notes: event.target.value })} /></td>
+                        <td><button className="icon-button danger" onClick={() => deleteTimesheetEntry(entry.id)}><Icon name="trash" /></button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="dashboard-grid">
+            <DashboardPanel title="Hours worked by date">
+              {Array.from(new Set(timesheets.map((entry) => entry.date))).map((date) => (
+                <ChartBar key={date} label={date} value={Number(timesheets.filter((entry) => entry.date === date).reduce((sum, entry) => sum + calculateHours(entry), 0).toFixed(1))} max={Math.max(1, timesheetTotals.totalHours)} />
+              ))}
+            </DashboardPanel>
+            <DashboardPanel title="Estimated payroll by employee">
+              {Array.from(new Set(timesheets.map((entry) => entry.employeeName))).map((employee) => {
+                const pay = timesheets.filter((entry) => entry.employeeName === employee).reduce((sum, entry) => sum + calculateHours(entry) * entry.hourlyRate, 0);
+                return <ChartBar key={employee} label={employee} value={Math.round(pay)} max={Math.max(1, timesheetTotals.totalPayroll)} />;
+              })}
+            </DashboardPanel>
+          </section>
+        </section>
+      )}
+
+      {activeTab === "Steve To Do List" && (
+        <section className="page-stack">
+          <section className="metrics" aria-label="Steve task metrics">
+            <Metric label="Total Tasks" value={taskMetrics.total} icon={<Icon name="message" />} />
+            <Metric label="Completed" value={taskMetrics.completed} icon={<Icon name="check" />} />
+            <Metric label="Pending" value={taskMetrics.pending} icon={<Icon name="clock" />} />
+            <Metric label="In Progress" value={taskMetrics.inProgress} icon={<Icon name="clock" />} />
+            <Metric label="Overdue" value={taskMetrics.overdue} icon={<Icon name="close" />} />
+            <Metric label="High Priority" value={taskMetrics.highPriority} icon={<Icon name="message" />} />
+            <Metric label="Due Today" value={taskMetrics.dueToday} icon={<Icon name="clock" />} />
+            <Metric label="Due This Week" value={taskMetrics.dueThisWeek} icon={<Icon name="clock" />} />
+          </section>
+          <section className="panel">
+            <div className="section-heading">
+              <div><span className="eyebrow">Steve To Do List</span><h2>Task management</h2></div>
+              <button onClick={addSteveTask}><Icon name="add" />Add Task</button>
+            </div>
+            <div className="list-tools one-field">
+              <label className="search-field"><Icon name="search" /><input value={taskSearch} onChange={(event) => setTaskSearch(event.target.value)} placeholder="Search tasks" /></label>
+            </div>
+            <div className="task-list">
+              {filteredTasks.map((task) => (
+                <article className="task-row" key={task.id}>
+                  <input value={task.name} onChange={(event) => updateSteveTask(task.id, { name: event.target.value })} />
+                  <input value={task.category} onChange={(event) => updateSteveTask(task.id, { category: event.target.value })} />
+                  <select value={task.priority} onChange={(event) => updateSteveTask(task.id, { priority: event.target.value as TaskPriority })}>{taskPriorities.map((priority) => <option key={priority}>{priority}</option>)}</select>
+                  <select value={task.status} onChange={(event) => updateSteveTask(task.id, { status: event.target.value as TaskStatus })}>{taskStatuses.map((status) => <option key={status}>{status}</option>)}</select>
+                  <input type="date" value={task.dueDate} onChange={(event) => updateSteveTask(task.id, { dueDate: event.target.value })} />
+                  <input value={task.assignedPerson} onChange={(event) => updateSteveTask(task.id, { assignedPerson: event.target.value })} />
+                  <input value={task.notes} onChange={(event) => updateSteveTask(task.id, { notes: event.target.value })} />
+                  <label className="inline-check"><input type="checkbox" checked={task.recurring} onChange={(event) => updateSteveTask(task.id, { recurring: event.target.checked })} />Recurring</label>
+                  <button onClick={() => moveTaskToDailyReport(task)}>Move to Daily Report</button>
+                  <button className="icon-button danger" onClick={() => deleteSteveTask(task.id)}><Icon name="trash" /></button>
+                </article>
+              ))}
+            </div>
+          </section>
+        </section>
+      )}
+
+      {activeTab === "Daily Report" && (
+        <section className="page-stack">
+          <section className="metrics" aria-label="Daily report metrics">
+            <Metric label="Report Status" value={currentReport.status === "Sent" ? 100 : currentReport.status === "Generated" ? 75 : 25} icon={<Icon name="message" />} />
+            <Metric label="Total Daily Tasks" value={dailyMetrics.total} icon={<Icon name="message" />} />
+            <Metric label="Completed" value={dailyMetrics.completed} icon={<Icon name="check" />} />
+            <Metric label="Pending" value={dailyMetrics.pending} icon={<Icon name="clock" />} />
+            <Metric label="Skipped" value={dailyMetrics.skipped} icon={<Icon name="close" />} />
+            <Metric label="Follow-Up Items" value={dailyMetrics.followUp} icon={<Icon name="message" />} />
+            <Metric label="Issues Reported" value={dailyMetrics.issues} icon={<Icon name="close" />} />
+            <Metric label="Reports Sent" value={dailyMetrics.sentThisWeek} icon={<Icon name="send" />} />
+          </section>
+          <section className="panel">
+            <div className="section-heading">
+              <div><span className="eyebrow">Daily Report</span><h2>{currentReport.reportDate} · {dayName(currentReport.reportDate)}</h2></div>
+              <div className="button-row">
+                <button onClick={addDailyTask}><Icon name="add" />Add Task</button>
+                <button onClick={generateEodReport}><Icon name="check" />Generate EOD Report</button>
+                <button onClick={() => updateCurrentReport({ status: "Sent" })}><Icon name="send" />Send to Steve</button>
+              </div>
+            </div>
+            <div className="daily-layout">
+              <div className="form-grid">
+                <TextField label="Prepared By" value={currentReport.preparedBy} onChange={(preparedBy) => updateCurrentReport({ preparedBy })} />
+                <label><span>Status</span><select value={currentReport.status} onChange={(event) => updateCurrentReport({ status: event.target.value as DailyReport["status"] })}><option>Draft</option><option>Generated</option><option>Sent</option></select></label>
+                <TextAreaField label="Summary of Work Completed" value={currentReport.summary} onChange={(summary) => updateCurrentReport({ summary })} />
+                <TextAreaField label="Applicant Tracker Updates" value={currentReport.applicantUpdates} onChange={(applicantUpdates) => updateCurrentReport({ applicantUpdates })} />
+                <TextAreaField label="Timesheet Updates" value={currentReport.timesheetUpdates} onChange={(timesheetUpdates) => updateCurrentReport({ timesheetUpdates })} />
+                <TextAreaField label="Steve To Do List Updates" value={currentReport.taskUpdates} onChange={(taskUpdates) => updateCurrentReport({ taskUpdates })} />
+                <TextAreaField label="Issues or Concerns" value={currentReport.issues} onChange={(issues) => updateCurrentReport({ issues })} />
+                <TextAreaField label="Pending Items / Next Steps" value={currentReport.pendingItems} onChange={(pendingItems) => updateCurrentReport({ pendingItems })} />
+              </div>
+              <div className="daily-task-list">
+                {currentReport.tasks.map((task) => (
+                  <article className="daily-task" key={task.id}>
+                    <input value={task.name} onChange={(event) => updateDailyTask(task.id, { name: event.target.value })} />
+                    <select value={task.status} onChange={(event) => updateDailyTask(task.id, { status: event.target.value as DailyTaskStatus })}>{dailyTaskStatuses.map((status) => <option key={status}>{status}</option>)}</select>
+                    <input value={task.notes} onChange={(event) => updateDailyTask(task.id, { notes: event.target.value })} placeholder="Notes or screenshot reference" />
+                    <label className="inline-check"><input type="checkbox" checked={task.recurring} onChange={(event) => updateDailyTask(task.id, { recurring: event.target.checked })} />Recurring</label>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        </section>
+      )}
 
       {detailsOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Applicant details">
@@ -915,7 +1612,7 @@ export default function App() {
   );
 }
 
-function Metric({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
+function Metric({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
   return (
     <article className="metric-card">
       <span>{icon}</span>
@@ -924,6 +1621,30 @@ function Metric({ label, value, icon }: { label: string; value: number; icon: Re
         <small>{label}</small>
       </div>
     </article>
+  );
+}
+
+function DashboardPanel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="panel chart-panel">
+      <h3>{title}</h3>
+      <div className="chart-bars">{children}</div>
+    </section>
+  );
+}
+
+function ChartBar({ label, value, max }: { label: string; value: number; max: number }) {
+  const width = Math.max(4, Math.min(100, (value / max) * 100));
+  return (
+    <div className="chart-row">
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <em>
+        <i style={{ width: `${width}%` }} />
+      </em>
+    </div>
   );
 }
 
@@ -942,6 +1663,23 @@ function TextField({
     <label className={wide ? "wide" : ""}>
       <span>{label}</span>
       <input value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function TextAreaField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="wide">
+      <span>{label}</span>
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={3} />
     </label>
   );
 }
