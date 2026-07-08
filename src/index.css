@@ -1090,6 +1090,20 @@ textarea:focus {
     max-height: 360px;
   }
 
+  .status-summary-grid {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px 2px 8px;
+    scroll-snap-type: x proximity;
+  }
+
+  .status-summary-card {
+    flex: 0 0 170px;
+    min-height: 52px;
+    scroll-snap-align: start;
+  }
+
   .wide {
     grid-column: auto;
   }
@@ -1099,11 +1113,13 @@ textarea:focus {
   }
 
   .kanban-board {
-    grid-auto-columns: minmax(220px, 86vw);
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+    overflow-x: visible;
   }
 
   .kanban-column {
-    min-height: 360px;
+    min-height: auto;
     min-width: 0;
   }
 

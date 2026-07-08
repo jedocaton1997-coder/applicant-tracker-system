@@ -7,7 +7,7 @@ A simple React-based operations dashboard for applicant tracking and an internal
 - Applicant records for name, email, Calendly link, address, phone, location, job post, interview type, interview location, interview date/time, status, and notes
 - Main dashboard with cross-module summary cards, quick links, and chart-style visual summaries
 - Pipeline metrics for total applicants, scheduled interviews, tomorrow reminders, today's schedule, and follow-ups
-- Kanban and list views for New Applicant, Contacted, Follow-Up, Scheduled, Confirmed, Passed, Failed, Cancelled, and No Show stages
+- Kanban and list views for New Applicant, Contacted, Follow-Up, Scheduled, Confirmed, Interview Completed, Passed, Failed, Cancelled, and No Show stages
 - Automatic Follow-Up movement for Contacted applicants after 24 hours with no status change and Scheduled applicants after the interview time passes
 - Applicant detail popup opened from each board card
 - Search and status filtering
