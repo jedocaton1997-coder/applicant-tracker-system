@@ -45,6 +45,56 @@ function taskIdCanUpdate(id) {
   return Boolean(id && id !== "new" && !String(id).includes("-"));
 }
 
+function digits(value = "") {
+  return String(value).replace(/\D/g, "");
+}
+
+function applicantKey(applicant) {
+  const email = String(applicant.email || "").trim().toLowerCase();
+  if (email) return `email:${email}`;
+  const phone = digits(applicant.phone);
+  if (phone) return `phone:${phone}`;
+  return `name:${String(applicant.name || "").trim().toLowerCase()}|job:${String(applicant.jobPost || "").trim().toLowerCase()}`;
+}
+
+function applicantScore(applicant) {
+  const statusScore = {
+    "New Applicant": 1,
+    Contacted: 2,
+    "Follow-Up": 3,
+    Scheduled: 6,
+    Confirmed: 7,
+    "Interview Completed": 8,
+    Passed: 9,
+    Failed: 4,
+    Cancelled: 0,
+    "No Show": 2,
+  };
+  return (
+    (statusScore[applicant.status] || 0) * 100000 +
+    (applicant.interviewDateTime ? 20000 : 0) +
+    (applicant.interviewLocation ? 5000 : 0) +
+    (applicant.phone ? 1000 : 0) +
+    (applicant.email ? 1000 : 0) +
+    Math.min(String(applicant.notes || "").length, 999)
+  );
+}
+
+function dedupeApplicants(applicants) {
+  const groups = new Map();
+  for (const applicant of applicants) {
+    const key = applicantKey(applicant);
+    groups.set(key, [...(groups.get(key) || []), applicant]);
+  }
+  return [...groups.values()].map((group) =>
+    group.sort(
+      (a, b) =>
+        applicantScore(b) - applicantScore(a) ||
+        String(b.statusUpdatedAt || b.createdAt || "").localeCompare(String(a.statusUpdatedAt || a.createdAt || "")),
+    )[0],
+  );
+}
+
 function taskMarkdown(applicant) {
   return [
     "## Applicant Details",
@@ -87,7 +137,7 @@ async function listApplicants() {
     applicants.push(...tasks.map(parseTask).filter(Boolean));
     if (tasks.length < 100) break;
   }
-  return applicants;
+  return dedupeApplicants(applicants);
 }
 
 async function deleteApplicant(id) {
@@ -112,6 +162,18 @@ async function saveApplicant(applicant) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
       if (!message.includes("not found") && !message.includes("deleted")) throw error;
     }
+  }
+
+  const existing = (await listApplicants()).find((item) => applicantKey(item) === applicantKey(applicant));
+  if (existing?.id && existing.id !== applicant.id) {
+    const task = await clickUpFetch(`/task/${existing.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: applicant.name || existing.name || "Unnamed applicant",
+        markdown_content: taskMarkdown({ ...existing, ...applicant, id: existing.id }),
+      }),
+    });
+    return parseTask(task) || { ...existing, ...applicant, id: existing.id };
   }
 
   const settings = config();
@@ -146,7 +208,7 @@ export default async function handler(req, res) {
           for (const applicant of existingApplicants) await deleteApplicant(applicant.id);
         }
         const applicants = [];
-        for (const applicant of body.applicants) applicants.push(await saveApplicant(applicant));
+        for (const applicant of dedupeApplicants(body.applicants)) applicants.push(await saveApplicant(applicant));
         send(res, 200, { applicants });
         return;
       }

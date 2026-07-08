@@ -101,6 +101,55 @@ function taskIdCanUpdate(id: string) {
   return Boolean(id && id !== "new" && !id.includes("-"));
 }
 
+function applicantKey(applicant: Applicant) {
+  const email = applicant.email.trim().toLowerCase();
+  if (email) return `email:${email}`;
+  const phone = applicant.phone.replace(/\D/g, "");
+  if (phone) return `phone:${phone}`;
+  return `name:${applicant.name.trim().toLowerCase()}|job:${applicant.jobPost.trim().toLowerCase()}`;
+}
+
+function applicantScore(applicant: Applicant) {
+  const statusScore: Record<Status, number> = {
+    "New Applicant": 1,
+    Contacted: 2,
+    "Follow-Up": 3,
+    Scheduled: 6,
+    Confirmed: 7,
+    "Interview Completed": 8,
+    Passed: 9,
+    Failed: 4,
+    Cancelled: 0,
+    "No Show": 2,
+  };
+  return (
+    statusScore[applicant.status] * 100_000 +
+    (applicant.interviewDateTime ? 20_000 : 0) +
+    (applicant.interviewLocation ? 5_000 : 0) +
+    (applicant.phone ? 1_000 : 0) +
+    (applicant.email ? 1_000 : 0) +
+    Math.min(applicant.notes.length, 999)
+  );
+}
+
+function dedupeApplicants(applicants: Applicant[]) {
+  const groups = applicants.reduce(
+    (record, applicant) => {
+      const key = applicantKey(applicant);
+      record[key] = [...(record[key] ?? []), applicant];
+      return record;
+    },
+    {} as Record<string, Applicant[]>,
+  );
+  return Object.values(groups).map((group) =>
+    group.sort(
+      (a, b) =>
+        applicantScore(b) - applicantScore(a) ||
+        (b.statusUpdatedAt || b.createdAt).localeCompare(a.statusUpdatedAt || a.createdAt),
+    )[0],
+  );
+}
+
 function taskMarkdown(applicant: Applicant) {
   const payload = JSON.stringify(applicant, null, 2);
   return [
@@ -149,7 +198,7 @@ async function listApplicants() {
     applicants.push(...tasks.map(parseTask).filter(Boolean) as Applicant[]);
     if (tasks.length < 100) break;
   }
-  return applicants;
+  return dedupeApplicants(applicants);
 }
 
 async function saveApplicant(applicant: Applicant) {
@@ -169,6 +218,18 @@ async function saveApplicant(applicant: Applicant) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
       if (!message.includes("not found") && !message.includes("deleted")) throw error;
     }
+  }
+
+  const existing = (await listApplicants()).find((item) => applicantKey(item) === applicantKey(applicant));
+  if (existing?.id && existing.id !== applicant.id) {
+    const task = await clickUpFetch<ClickUpTask>(`/task/${existing.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: applicant.name || existing.name || "Unnamed applicant",
+        markdown_content: taskMarkdown({ ...existing, ...applicant, id: existing.id }),
+      }),
+    });
+    return parseTask(task) ?? { ...existing, ...applicant, id: existing.id };
   }
 
   const config = getConfig();
@@ -209,7 +270,7 @@ export async function handleSharedApplicants(req: IncomingMessage, res: ServerRe
           for (const applicant of existingApplicants) await deleteApplicant(applicant.id);
         }
         const applicants = [];
-        for (const applicant of body.applicants) applicants.push(await saveApplicant(applicant));
+        for (const applicant of dedupeApplicants(body.applicants)) applicants.push(await saveApplicant(applicant));
         sendJson(res, 200, { applicants });
         return;
       }

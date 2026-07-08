@@ -374,6 +374,56 @@ function normalizeApplicant(applicant: Partial<Applicant>): Applicant {
   };
 }
 
+function applicantIdentityKey(applicant: Applicant) {
+  const email = applicant.email.trim().toLowerCase();
+  if (email) return `email:${email}`;
+  const phone = normalizePhone(applicant.phone);
+  if (phone) return `phone:${phone}`;
+  return `name:${applicant.name.trim().toLowerCase()}|job:${applicant.jobPost.trim().toLowerCase()}`;
+}
+
+function applicantCompletenessScore(applicant: Applicant) {
+  const statusScore: Record<Status, number> = {
+    "New Applicant": 1,
+    Contacted: 2,
+    "Follow-Up": 3,
+    Scheduled: 6,
+    Confirmed: 7,
+    "Interview Completed": 8,
+    Passed: 9,
+    Failed: 4,
+    Cancelled: 0,
+    "No Show": 2,
+  };
+  return (
+    statusScore[applicant.status] * 100_000 +
+    (applicant.interviewDateTime ? 20_000 : 0) +
+    (applicant.interviewLocation ? 5_000 : 0) +
+    (applicant.phone ? 1_000 : 0) +
+    (applicant.email ? 1_000 : 0) +
+    Math.min(applicant.notes.length, 999)
+  );
+}
+
+function dedupeApplicants(applicantsToDedupe: Applicant[]) {
+  const groups = applicantsToDedupe.reduce(
+    (record, applicant) => {
+      const key = applicantIdentityKey(applicant);
+      record[key] = [...(record[key] ?? []), applicant];
+      return record;
+    },
+    {} as Record<string, Applicant[]>,
+  );
+
+  return Object.values(groups).map((group) =>
+    group.sort(
+      (a, b) =>
+        applicantCompletenessScore(b) - applicantCompletenessScore(a) ||
+        (b.statusUpdatedAt || b.createdAt).localeCompare(a.statusUpdatedAt || a.createdAt),
+    )[0],
+  );
+}
+
 function parseCsv(text: string) {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -498,7 +548,7 @@ function loadSavedApplicants() {
     if (!saved) return starterApplicants.map(normalizeApplicant);
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed)) return starterApplicants.map(normalizeApplicant);
-    return parsed.map(normalizeApplicant);
+    return dedupeApplicants(parsed.map(normalizeApplicant));
   } catch {
     return starterApplicants.map(normalizeApplicant);
   }
@@ -720,10 +770,10 @@ export default function App() {
 
     const loadShared = async () => {
       try {
-        const sharedApplicants = await fetchSharedApplicants();
+        const sharedApplicants = dedupeApplicants(await fetchSharedApplicants());
         if (cancelled) return;
         sharedSyncEnabledRef.current = true;
-        const localApplicants = applicants;
+        const localApplicants = dedupeApplicants(applicants);
 
         if (hadApplicantCacheRef.current && localApplicants.length > sharedApplicants.length) {
           setSyncStatus("Saving");
@@ -778,7 +828,7 @@ export default function App() {
     const interval = window.setInterval(async () => {
       if (!sharedSyncEnabledRef.current || localEditActiveRef.current) return;
       try {
-        const sharedApplicants = await fetchSharedApplicants();
+        const sharedApplicants = dedupeApplicants(await fetchSharedApplicants());
         if (sharedApplicants.length > 0) setApplicants(sharedApplicants);
       } catch {
         sharedSyncEnabledRef.current = false;
