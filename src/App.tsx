@@ -731,6 +731,15 @@ export default function App() {
       {} as Record<Status, Applicant[]>,
     );
   }, [filteredApplicants]);
+  const statusTotals = useMemo(() => {
+    return statuses.reduce(
+      (totals, status) => {
+        totals[status] = applicants.filter((applicant) => applicant.status === status).length;
+        return totals;
+      },
+      {} as Record<Status, number>,
+    );
+  }, [applicants]);
 
   const metrics = useMemo(() => {
     const activeInterviewStatuses: Status[] = ["Scheduled", "Confirmed"];
@@ -1026,6 +1035,27 @@ export default function App() {
         <Metric label="Tomorrow Reminders" value={metrics.tomorrowInterviews} icon={<Icon name="clock" />} />
         <Metric label="Today Schedule" value={metrics.todayInterviews} icon={<Icon name="clock" />} />
         <Metric label="Needs Follow-Up" value={metrics.needsFollowUp} icon={<Icon name="message" />} />
+      </section>
+      <section className="status-summary-grid" aria-label="Applicant status totals">
+        <button
+          className={statusFilter === "All" ? "status-summary-card active" : "status-summary-card"}
+          onClick={() => setStatusFilter("All")}
+        >
+          <span className="status-dot status-all" />
+          <strong>All</strong>
+          <em>{metrics.total}</em>
+        </button>
+        {statuses.map((status) => (
+          <button
+            className={statusFilter === status ? "status-summary-card active" : "status-summary-card"}
+            key={status}
+            onClick={() => setStatusFilter(status)}
+          >
+            <span className={`status-dot status-${status.toLowerCase().replaceAll(" ", "-")}`} />
+            <strong>{status}</strong>
+            <em>{statusTotals[status] ?? 0}</em>
+          </button>
+        ))}
       </section>
 
       <section className="workspace kanban-workspace">
