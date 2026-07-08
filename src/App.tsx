@@ -90,6 +90,7 @@ const iconLabels = {
   search: "Find",
   send: "SMS",
   trash: "Del",
+  voice: "GV",
   close: "X",
 } as const;
 
@@ -699,18 +700,22 @@ Please be prepared and available at the scheduled time. If any changes are neede
 ${signature}`,
     "Interview Reminder": `Hello ${name},
 
-This is a reminder that you have a scheduled interview tomorrow at ${interviewTime} for the ${job} position.
+This is a reminder that you have a scheduled interview at ${interviewTime} for the ${job} position.
 
 ${reminderLocationSentence}
 
-Kindly confirm today or tomorrow by 10:00 AM if you are able to attend. If we do not receive your confirmation, your appointment may be canceled and rescheduled.
+Kindly confirm by the end of the day if you are able to attend your scheduled interview. If we do not receive your confirmation, your appointment may be canceled and rescheduled.
 
 Thank you.`,
     "2-Hour Interview Reminder": `Hello ${name},
 
 I hope you are doing well.
 
-Kindly confirm by 10:00 AM if you will be able to attend your appointment today at ${interviewTime} ${reminderLocation}.
+This is a reminder that your interview for the ${job} position is scheduled today at ${interviewTime}.
+
+${reminderLocationSentence}
+
+Kindly confirm by 10:00 AM if you will be able to attend your scheduled interview.
 
 If we do not receive your confirmation by 10:00 AM, we will cancel your appointment and ask you to reschedule.
 
@@ -1075,6 +1080,13 @@ export default function App() {
     await navigator.clipboard.writeText(message);
     setCopyLabel("Copied");
     window.setTimeout(() => setCopyLabel("Copy"), 1200);
+  }
+
+  async function openGoogleVoice() {
+    await navigator.clipboard.writeText(message);
+    setCopyLabel("Copied");
+    window.setTimeout(() => setCopyLabel("Copy"), 1200);
+    window.open("https://voice.google.com/messages", "_blank", "noopener,noreferrer");
   }
 
   async function importCandidates(file: File | undefined) {
@@ -1600,6 +1612,10 @@ export default function App() {
                   <Icon name="send" />
                   SMS
                 </a>
+                <button onClick={openGoogleVoice}>
+                  <Icon name="voice" />
+                  Google Voice
+                </button>
                 <a href={`mailto:?subject=${encodeURIComponent(`Application update for ${selected.jobPost}`)}&body=${encodeURIComponent(message)}`}>
                   <Icon name="mail" />
                   Email
