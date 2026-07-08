@@ -70,6 +70,7 @@ async function clickUpFetch(path, init = {}) {
 
   const response = await fetch(`${clickUpBaseUrl}${path}`, {
     ...init,
+    signal: init.signal || AbortSignal.timeout(12_000),
     headers: {
       Authorization: settings.apiToken,
       "Content-Type": "application/json",
@@ -164,21 +165,17 @@ function customFieldValue(field, applicant) {
 
 async function setApplicantCustomFields(taskId, applicant, fields) {
   const targetFields = fields.filter((field) => requiredFieldDefinitions.some((definition) => definition.name === field.name));
-  let updated = 0;
-  for (const field of targetFields) {
+  const updates = targetFields.map(async (field) => {
     const value = customFieldValue(field, applicant);
-    if (value === undefined) continue;
-    try {
-      await clickUpFetch(`/task/${taskId}/field/${field.id}`, {
-        method: "POST",
-        body: JSON.stringify({ value }),
-      });
-      updated += 1;
-    } catch {
-      // Keep the structured task description as fallback if ClickUp rejects a field-specific format.
-    }
-  }
-  return updated;
+    if (value === undefined) return false;
+    await clickUpFetch(`/task/${taskId}/field/${field.id}`, {
+      method: "POST",
+      body: JSON.stringify({ value }),
+    });
+    return true;
+  });
+  const results = await Promise.allSettled(updates);
+  return results.filter((result) => result.status === "fulfilled" && result.value).length;
 }
 
 function digits(value = "") {
