@@ -44,6 +44,7 @@ type Applicant = {
 };
 
 type ActiveTab = "Dashboard" | "Applicant Tracker" | "Timesheet";
+type SyncStatus = "Connecting" | "Synced" | "Saving" | "Offline";
 
 type TimesheetEntry = {
   id: string;
@@ -503,6 +504,45 @@ function loadSavedApplicants() {
   }
 }
 
+function hasApplicantCache() {
+  return Boolean(localStorage.getItem("ats-applicants"));
+}
+
+async function fetchSharedApplicants() {
+  const response = await fetch("/api/applicants");
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Unable to load shared applicants.");
+  return Array.isArray(data.applicants) ? data.applicants.map(normalizeApplicant) : [];
+}
+
+async function saveSharedApplicant(applicant: Applicant) {
+  const response = await fetch("/api/applicants", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ applicant }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Unable to save shared applicant.");
+  return normalizeApplicant(data.applicant);
+}
+
+async function saveSharedApplicants(applicants: Applicant[], replace = false) {
+  const response = await fetch("/api/applicants", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ applicants, replace }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Unable to save shared applicants.");
+  return Array.isArray(data.applicants) ? data.applicants.map(normalizeApplicant) : [];
+}
+
+async function removeSharedApplicant(id: string) {
+  const response = await fetch(`/api/applicants?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Unable to delete shared applicant.");
+}
+
 function loadSavedTimesheets() {
   try {
     const saved = localStorage.getItem("ops-timesheets");
@@ -656,6 +696,10 @@ ${signature}`,
 
 export default function App() {
   const importInputRef = useRef<HTMLInputElement>(null);
+  const hadApplicantCacheRef = useRef(hasApplicantCache());
+  const sharedSyncEnabledRef = useRef(false);
+  const syncTimersRef = useRef<Record<string, number>>({});
+  const localEditActiveRef = useRef(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>("Dashboard");
   const [applicants, setApplicants] = useState<Applicant[]>(loadSavedApplicants);
   const [timesheets, setTimesheets] = useState<TimesheetEntry[]>(loadSavedTimesheets);
@@ -668,6 +712,87 @@ export default function App() {
   const [importSummary, setImportSummary] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [preferredMessageType, setPreferredMessageType] = useState<MessageType | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("Connecting");
+  const [syncMessage, setSyncMessage] = useState("Connecting shared applicant data...");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadShared = async () => {
+      try {
+        const sharedApplicants = await fetchSharedApplicants();
+        if (cancelled) return;
+        sharedSyncEnabledRef.current = true;
+        const localApplicants = applicants;
+
+        if (hadApplicantCacheRef.current && localApplicants.length > sharedApplicants.length) {
+          setSyncStatus("Saving");
+          setSyncMessage(`This browser has ${localApplicants.length} saved applicants. Updating shared desktop/iPad data...`);
+          const migratedApplicants = await saveSharedApplicants(localApplicants, true);
+          if (cancelled) return;
+          if (migratedApplicants.length > 0) {
+            setApplicants(migratedApplicants);
+            setSelectedId((current) => migratedApplicants.find((applicant) => applicant.id === current)?.id ?? migratedApplicants[0].id);
+          }
+          const syncedCount = migratedApplicants.length || localApplicants.length;
+          setSyncStatus("Synced");
+          setSyncMessage(`Shared data connected. ${syncedCount} applicant${syncedCount === 1 ? "" : "s"} synced from this browser.`);
+          return;
+        }
+
+        if (sharedApplicants.length > 0) {
+          setApplicants(sharedApplicants);
+          setSelectedId((current) => sharedApplicants.find((applicant) => applicant.id === current)?.id ?? sharedApplicants[0].id);
+          setSyncStatus("Synced");
+          setSyncMessage(`Shared data connected. ${sharedApplicants.length} applicant${sharedApplicants.length === 1 ? "" : "s"} loaded.`);
+          return;
+        }
+
+        if (hadApplicantCacheRef.current && localApplicants.length > 0) {
+          setSyncStatus("Saving");
+          setSyncMessage("Shared data is empty. Uploading saved desktop applicants...");
+          const migratedApplicants = await saveSharedApplicants(localApplicants, true);
+          if (cancelled) return;
+          if (migratedApplicants.length > 0) {
+            setApplicants(migratedApplicants);
+            setSelectedId((current) => migratedApplicants.find((applicant) => applicant.id === current)?.id ?? migratedApplicants[0].id);
+          }
+          setSyncStatus("Synced");
+          setSyncMessage(`Shared data connected. ${migratedApplicants.length || localApplicants.length} applicant${(migratedApplicants.length || localApplicants.length) === 1 ? "" : "s"} synced.`);
+          return;
+        }
+
+        setApplicants([]);
+        setSelectedId("new");
+        setSyncStatus("Synced");
+        setSyncMessage("Shared data connected. No applicants have been saved yet.");
+      } catch (error) {
+        if (cancelled) return;
+        sharedSyncEnabledRef.current = false;
+        setSyncStatus("Offline");
+        setSyncMessage(error instanceof Error ? `Shared sync offline: ${error.message}` : "Shared sync offline. Using this device only.");
+      }
+    };
+
+    loadShared();
+    const interval = window.setInterval(async () => {
+      if (!sharedSyncEnabledRef.current || localEditActiveRef.current) return;
+      try {
+        const sharedApplicants = await fetchSharedApplicants();
+        if (sharedApplicants.length > 0) setApplicants(sharedApplicants);
+      } catch {
+        sharedSyncEnabledRef.current = false;
+        setSyncStatus("Offline");
+        setSyncMessage("Shared sync offline. Using this device only.");
+      }
+    }, 20_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      Object.values(syncTimersRef.current).forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("ats-applicants", JSON.stringify(applicants));
@@ -679,6 +804,7 @@ export default function App() {
 
   useEffect(() => {
     const moveStaleApplicants = () => {
+      const movedApplicants: Applicant[] = [];
       setApplicants((current) => {
         let changed = false;
         const next = current.map((applicant) => {
@@ -688,15 +814,18 @@ export default function App() {
             applicant.status === "Contacted"
               ? `Automatically moved to Follow-Up after ${contactedFollowUpHours} hours with no status change.`
               : "Automatically moved to Follow-Up because the scheduled interview time has passed.";
-          return {
+          const updatedApplicant = {
             ...applicant,
             status: "Follow-Up" as Status,
             statusUpdatedAt: new Date().toISOString(),
             notes: applicant.notes.includes(automaticNote) ? applicant.notes : [applicant.notes, automaticNote].filter(Boolean).join("\n"),
           };
+          movedApplicants.push(updatedApplicant);
+          return updatedApplicant;
         });
         return changed ? next : current;
       });
+      window.setTimeout(() => movedApplicants.forEach((applicant) => scheduleSharedSync(applicant)), 0);
     };
 
     moveStaleApplicants();
@@ -817,8 +946,37 @@ export default function App() {
     setDetailsOpen(true);
   }
 
+  function scheduleSharedSync(applicant: Applicant, delay = 900) {
+    if (!sharedSyncEnabledRef.current) return;
+    const syncKey = applicant.id;
+    window.clearTimeout(syncTimersRef.current[syncKey]);
+    localEditActiveRef.current = true;
+    setSyncStatus("Saving");
+    setSyncMessage("Saving updates for desktop and iPad...");
+
+    syncTimersRef.current[syncKey] = window.setTimeout(async () => {
+      try {
+        const syncedApplicant = await saveSharedApplicant(applicant);
+        setApplicants((current) =>
+          current.map((item) => (item.id === syncKey || item.id === syncedApplicant.id ? { ...item, ...syncedApplicant } : item)),
+        );
+        setSelectedId((current) => (current === syncKey ? syncedApplicant.id : current));
+        sharedSyncEnabledRef.current = true;
+        setSyncStatus("Synced");
+        setSyncMessage("Shared data synced for desktop and iPad.");
+      } catch (error) {
+        sharedSyncEnabledRef.current = false;
+        setSyncStatus("Offline");
+        setSyncMessage(error instanceof Error ? `Shared sync failed: ${error.message}` : "Shared sync failed. Using this device only.");
+      } finally {
+        localEditActiveRef.current = false;
+      }
+    }, delay);
+  }
+
   function saveApplicant(next: Applicant) {
     const savedId = next.id === "new" ? crypto.randomUUID() : next.id;
+    let applicantToSync: Applicant | null = null;
     setApplicants((current) => {
       const existing = current.find((item) => item.id === savedId);
       const timestamp = new Date().toISOString();
@@ -826,9 +984,13 @@ export default function App() {
         next.id === "new"
           ? { ...next, id: savedId, createdAt: timestamp, statusUpdatedAt: timestamp }
           : { ...next, statusUpdatedAt: existing && existing.status !== next.status ? timestamp : next.statusUpdatedAt || existing?.statusUpdatedAt || timestamp };
+      applicantToSync = applicant;
       return existing ? current.map((item) => (item.id === applicant.id ? applicant : item)) : [applicant, ...current];
     });
     setSelectedId(savedId);
+    window.setTimeout(() => {
+      if (applicantToSync) scheduleSharedSync(applicantToSync);
+    }, 0);
   }
 
   function updateSelected(patch: Partial<Applicant>) {
@@ -846,6 +1008,17 @@ export default function App() {
     setApplicants((current) => current.filter((applicant) => applicant.id !== id));
     if (selectedId === id) setSelectedId(applicants.find((applicant) => applicant.id !== id)?.id ?? "new");
     setDetailsOpen(false);
+    if (sharedSyncEnabledRef.current) {
+      removeSharedApplicant(id)
+        .then(() => {
+          setSyncStatus("Synced");
+          setSyncMessage("Applicant removed from shared desktop/iPad data.");
+        })
+        .catch((error) => {
+          setSyncStatus("Offline");
+          setSyncMessage(error instanceof Error ? `Shared delete failed: ${error.message}` : "Shared delete failed.");
+        });
+    }
   }
 
   async function copyMessage() {
@@ -862,6 +1035,7 @@ export default function App() {
     let added = 0;
     let skipped = 0;
     let firstAddedId = "";
+    const addedApplicants: Applicant[] = [];
 
     setApplicants((current) => {
       const existingKeys = new Set(
@@ -877,6 +1051,7 @@ export default function App() {
         }
 
         next.unshift(applicant);
+        addedApplicants.push(applicant);
         keys.forEach((key) => existingKeys.add(key));
         added += 1;
         if (!firstAddedId) firstAddedId = applicant.id;
@@ -887,6 +1062,7 @@ export default function App() {
 
     if (firstAddedId) setSelectedId(firstAddedId);
     if (firstAddedId) setDetailsOpen(true);
+    window.setTimeout(() => addedApplicants.forEach((applicant) => scheduleSharedSync(applicant, 200)), 0);
     setImportSummary(`Imported ${added} candidate${added === 1 ? "" : "s"}${skipped ? `, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}` : ""}.`);
     if (importInputRef.current) importInputRef.current.value = "";
   }
@@ -1016,6 +1192,7 @@ export default function App() {
           <div>
             <span className="eyebrow">Applicant Tracker</span>
             <h2>Candidate pipeline</h2>
+            <p className={`sync-status sync-${syncStatus.toLowerCase()}`}>{syncMessage}</p>
           </div>
           <div className="button-row">
             <button className="secondary-action" onClick={() => importInputRef.current?.click()}>

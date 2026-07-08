@@ -105,6 +105,40 @@ h3 {
   margin: 4px 0 0;
 }
 
+.sync-status {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  margin: 8px 0 0;
+  max-width: 680px;
+}
+
+.sync-status::before {
+  background: var(--line);
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  flex: 0 0 8px;
+  height: 8px;
+  width: 8px;
+}
+
+.sync-synced::before {
+  background: var(--green);
+}
+
+.sync-saving::before,
+.sync-connecting::before {
+  background: var(--orange);
+}
+
+.sync-offline::before {
+  background: var(--red);
+}
+
 .primary-action,
 .secondary-action,
 .button-row button,
