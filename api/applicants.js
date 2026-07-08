@@ -1,6 +1,47 @@
 const clickUpBaseUrl = "https://api.clickup.com/api/v2";
 const jsonStart = "ATS_APPLICANT_JSON_START";
 const jsonEnd = "ATS_APPLICANT_JSON_END";
+const workflowStatuses = [
+  "New Applicant",
+  "Contacted",
+  "Follow-Up",
+  "Scheduled",
+  "Confirmed",
+  "Interview Completed",
+  "Passed",
+  "Failed",
+  "Cancelled",
+  "No Show",
+];
+const workflowColors = ["#87909e", "#1f7a5b", "#f8ae00", "#2866a8", "#0f9d9f", "#7b68ee", "#008844", "#b73535", "#aa8d80", "#e16b16"];
+const requiredFieldDefinitions = [
+  {
+    name: "Applicant Status",
+    type: "drop_down",
+    type_config: {
+      options: workflowStatuses.map((name, orderindex) => ({ name, color: workflowColors[orderindex], orderindex })),
+    },
+  },
+  { name: "Phone", type: "phone", type_config: {} },
+  { name: "Email", type: "email", type_config: {} },
+  { name: "Address", type: "short_text", type_config: {} },
+  { name: "Location", type: "short_text", type_config: {} },
+  { name: "Job Post", type: "short_text", type_config: {} },
+  {
+    name: "Interview Type",
+    type: "drop_down",
+    type_config: {
+      options: [
+        { name: "Online", color: "#2866a8", orderindex: 0 },
+        { name: "Face-to-Face", color: "#1f7a5b", orderindex: 1 },
+      ],
+    },
+  },
+  { name: "Interview Location", type: "short_text", type_config: {} },
+  { name: "Interview Date/Time", type: "date", type_config: {} },
+  { name: "Notes", type: "text", type_config: {} },
+  { name: "Calendly Link", type: "url", type_config: {} },
+];
 
 function config() {
   const apiToken = process.env.CLICKUP_API_TOKEN;
@@ -43,6 +84,101 @@ async function clickUpFetch(path, init = {}) {
 
 function taskIdCanUpdate(id) {
   return Boolean(id && id !== "new" && !String(id).includes("-"));
+}
+
+function asTimestamp(value) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.getTime();
+}
+
+function findDropDownOption(field, value) {
+  return field?.type_config?.options?.find((option) => String(option.name).toLowerCase() === String(value).toLowerCase())?.id;
+}
+
+async function getCustomFields() {
+  const settings = config();
+  const data = await clickUpFetch(`/list/${settings.listId}/field`);
+  return data.fields || [];
+}
+
+async function createField(definition) {
+  const settings = config();
+  try {
+    return await clickUpFetch(`/list/${settings.listId}/field`, {
+      method: "POST",
+      body: JSON.stringify(definition),
+    });
+  } catch (error) {
+    if (definition.type === "text") {
+      return clickUpFetch(`/list/${settings.listId}/field`, {
+        method: "POST",
+        body: JSON.stringify({ ...definition, type: "short_text" }),
+      });
+    }
+    throw error;
+  }
+}
+
+async function ensureCustomFields() {
+  let fields = await getCustomFields();
+  const created = [];
+  for (const definition of requiredFieldDefinitions) {
+    const exists = fields.find((field) => String(field.name).toLowerCase() === definition.name.toLowerCase());
+    if (exists) continue;
+    const result = await createField(definition);
+    created.push(result.field?.name || definition.name);
+    fields = await getCustomFields();
+  }
+  return { fields, created };
+}
+
+function customFieldValue(field, applicant) {
+  switch (field.name) {
+    case "Applicant Status":
+      return findDropDownOption(field, applicant.status);
+    case "Phone":
+      return applicant.phone || undefined;
+    case "Email":
+      return applicant.email || undefined;
+    case "Address":
+      return applicant.address || undefined;
+    case "Location":
+      return applicant.location || undefined;
+    case "Job Post":
+      return applicant.jobPost || undefined;
+    case "Interview Type":
+      return findDropDownOption(field, applicant.interviewType);
+    case "Interview Location":
+      return applicant.interviewLocation || undefined;
+    case "Interview Date/Time":
+      return asTimestamp(applicant.interviewDateTime);
+    case "Notes":
+      return applicant.notes || undefined;
+    case "Calendly Link":
+      return applicant.calendlyLink || undefined;
+    default:
+      return undefined;
+  }
+}
+
+async function setApplicantCustomFields(taskId, applicant, fields) {
+  const targetFields = fields.filter((field) => requiredFieldDefinitions.some((definition) => definition.name === field.name));
+  let updated = 0;
+  for (const field of targetFields) {
+    const value = customFieldValue(field, applicant);
+    if (value === undefined) continue;
+    try {
+      await clickUpFetch(`/task/${taskId}/field/${field.id}`, {
+        method: "POST",
+        body: JSON.stringify({ value }),
+      });
+      updated += 1;
+    } catch {
+      // Keep the structured task description as fallback if ClickUp rejects a field-specific format.
+    }
+  }
+  return updated;
 }
 
 function digits(value = "") {
@@ -150,6 +286,7 @@ async function saveApplicant(applicant) {
     name: applicant.name || "Unnamed applicant",
     markdown_content: taskMarkdown(applicant),
   };
+  const { fields } = await ensureCustomFields();
 
   if (taskIdCanUpdate(applicant.id)) {
     try {
@@ -157,6 +294,7 @@ async function saveApplicant(applicant) {
         method: "PUT",
         body: JSON.stringify(payload),
       });
+      await setApplicantCustomFields(task.id, applicant, fields);
       return parseTask(task) || { ...applicant, id: task.id };
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -166,13 +304,15 @@ async function saveApplicant(applicant) {
 
   const existing = (await listApplicants()).find((item) => applicantKey(item) === applicantKey(applicant));
   if (existing?.id && existing.id !== applicant.id) {
+    const nextApplicant = { ...existing, ...applicant, id: existing.id };
     const task = await clickUpFetch(`/task/${existing.id}`, {
       method: "PUT",
       body: JSON.stringify({
         name: applicant.name || existing.name || "Unnamed applicant",
-        markdown_content: taskMarkdown({ ...existing, ...applicant, id: existing.id }),
+        markdown_content: taskMarkdown(nextApplicant),
       }),
     });
+    await setApplicantCustomFields(task.id, nextApplicant, fields);
     return parseTask(task) || { ...existing, ...applicant, id: existing.id };
   }
 
@@ -181,7 +321,23 @@ async function saveApplicant(applicant) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  await setApplicantCustomFields(task.id, applicant, fields);
   return parseTask(task) || { ...applicant, id: task.id };
+}
+
+async function setupClickUpList() {
+  const { fields, created } = await ensureCustomFields();
+  const applicants = await listApplicants();
+  let taskFieldsUpdated = 0;
+  for (const applicant of applicants) taskFieldsUpdated += await setApplicantCustomFields(applicant.id, applicant, fields);
+  return {
+    statuses: workflowStatuses,
+    fields: requiredFieldDefinitions.map((definition) => definition.name),
+    created,
+    applicants: applicants.length,
+    taskFieldsUpdated,
+    nativeStatusNote: "ClickUp public API is used to mirror the workflow in the Applicant Status custom field; native list status customization may need to be adjusted in the ClickUp UI if required.",
+  };
 }
 
 export default async function handler(req, res) {
@@ -192,6 +348,11 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "GET") {
+      const requestUrl = new URL(req.url || "", "http://localhost");
+      if (requestUrl.searchParams.get("setup") === "clickup") {
+        send(res, 200, await setupClickUpList());
+        return;
+      }
       send(res, 200, { applicants: await listApplicants() });
       return;
     }
