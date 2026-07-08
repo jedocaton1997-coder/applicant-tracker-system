@@ -6,6 +6,7 @@ type Status =
   | "Follow-Up"
   | "Scheduled"
   | "Confirmed"
+  | "Interview Completed"
   | "Passed"
   | "Failed"
   | "Cancelled"
@@ -61,7 +62,7 @@ type TimesheetEntry = {
 
 type TimesheetStatus = "Present" | "Absent" | "Late" | "Incomplete" | "VL" | "SL";
 
-const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Confirmed", "Passed", "Failed", "Cancelled", "No Show"];
+const statuses: Status[] = ["New Applicant", "Contacted", "Follow-Up", "Scheduled", "Confirmed", "Interview Completed", "Passed", "Failed", "Cancelled", "No Show"];
 const tabs: ActiveTab[] = ["Dashboard", "Applicant Tracker", "Timesheet"];
 
 const messageTypes: MessageType[] = [
@@ -107,7 +108,6 @@ const timesheetStatuses: TimesheetStatus[] = ["Present", "Absent", "Late", "Inco
 const payCycleAnchorStart = "2026-06-22";
 const payCycleLengthDays = 14;
 const payCycleWorkDays = 12;
-
 function Icon({ name }: { name: keyof typeof iconLabels }) {
   return (
     <span className="mini-icon" aria-hidden="true">
@@ -184,7 +184,7 @@ const starterTimesheets: TimesheetEntry[] = [
     breakMinutes: defaultBreakMinutes,
     hourlyRate: defaultHourlyRate,
     attendanceStatus: "Present",
-    notes: "Completed route data and applicant updates.",
+    notes: "Completed operations data and applicant updates.",
     payPeriodStart: defaultPayPeriod.start,
     payPeriodEnd: defaultPayPeriod.end,
     payDate: defaultPayPeriod.payDate,
@@ -549,6 +549,7 @@ function suggestedMessageType(status: Status): MessageType {
     "Follow-Up": "Follow-Up Message",
     Scheduled: "Interview Confirmation",
     Confirmed: "Interview Confirmation",
+    "Interview Completed": "Interview Confirmation",
     Passed: "Congratulations Message",
     Failed: "Rejection Message",
     Cancelled: "Reschedule Message",
@@ -797,6 +798,7 @@ export default function App() {
       missingEntries: currentPeriodTimesheets.filter((entry) => !entry.clockIn || !entry.clockOut || entry.attendanceStatus === "Incomplete").length,
     };
   }, [currentPeriodTimesheets]);
+
   function openApplicantDetails(id: string, type?: MessageType) {
     if (type) {
       setPreferredMessageType(type);
