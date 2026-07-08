@@ -1083,10 +1083,11 @@ export default function App() {
   }
 
   async function openGoogleVoice() {
-    await navigator.clipboard.writeText(message);
+    const phone = selected.phone.replace(/[^\d+]/g, "");
+    await navigator.clipboard.writeText(`To: ${phone}\n\n${message}`);
     setCopyLabel("Copied");
     window.setTimeout(() => setCopyLabel("Copy"), 1200);
-    window.open("https://voice.google.com/messages", "_blank", "noopener,noreferrer");
+    window.open("https://voice.google.com/u/2/messages?itemId=draft", "_blank", "noopener,noreferrer");
   }
 
   async function importCandidates(file: File | undefined) {
