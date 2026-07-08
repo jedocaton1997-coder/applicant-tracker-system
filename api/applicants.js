@@ -325,16 +325,20 @@ async function saveApplicant(applicant) {
   return parseTask(task) || { ...applicant, id: task.id };
 }
 
-async function setupClickUpList() {
+async function setupClickUpList({ backfill = false, start = 0, limit = 2 } = {}) {
   const { fields, created } = await ensureCustomFields();
   const applicants = await listApplicants();
   let taskFieldsUpdated = 0;
-  for (const applicant of applicants) taskFieldsUpdated += await setApplicantCustomFields(applicant.id, applicant, fields);
+  const backfillApplicants = backfill ? applicants.slice(start, start + limit) : [];
+  for (const applicant of backfillApplicants) taskFieldsUpdated += await setApplicantCustomFields(applicant.id, applicant, fields);
   return {
     statuses: workflowStatuses,
     fields: requiredFieldDefinitions.map((definition) => definition.name),
     created,
     applicants: applicants.length,
+    backfilledApplicants: backfillApplicants.length,
+    nextStart: backfill ? start + backfillApplicants.length : 0,
+    done: backfill ? start + backfillApplicants.length >= applicants.length : true,
     taskFieldsUpdated,
     nativeStatusNote: "ClickUp public API is used to mirror the workflow in the Applicant Status custom field; native list status customization may need to be adjusted in the ClickUp UI if required.",
   };
@@ -350,7 +354,10 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const requestUrl = new URL(req.url || "", "http://localhost");
       if (requestUrl.searchParams.get("setup") === "clickup") {
-        send(res, 200, await setupClickUpList());
+        const backfill = requestUrl.searchParams.get("backfill") === "1";
+        const start = Number(requestUrl.searchParams.get("start") || 0);
+        const limit = Number(requestUrl.searchParams.get("limit") || 2);
+        send(res, 200, await setupClickUpList({ backfill, start, limit }));
         return;
       }
       send(res, 200, { applicants: await listApplicants() });
